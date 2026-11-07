@@ -59,6 +59,14 @@
     "llm"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LONGSASASASASA/dsh-prompt-craft.git"
+  },
+  "homepage": "https://github.com/LONGSASASASASA/dsh-prompt-craft#readme",
+  "bugs": {
+    "url": "https://github.com/LONGSASASASASA/dsh-prompt-craft/issues"
+  },
   "devDependencies": {
     "esbuild": "^0.24.2"
   }
