@@ -1,0 +1,127 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const protocol = require('../src/protocol.cjs');
+
+test('protocol constants are stable', () => {
+  assert.equal(protocol.PLUGIN_ID, 'dsh-prompt-craft');
+  assert.equal(protocol.RPC_PATH, '/dsh-prompt-craft/rpc');
+  assert.deepEqual(protocol.MODES, ['light', 'standard', 'expert']);
+  assert.deepEqual(protocol.SCENARIOS, ['auto', 'code', 'writing', 'research', 'agent', 'general']);
+  assert.equal(protocol.LIMITS.MAX_BODY_BYTES, 1024 * 1024);
+  assert.equal(protocol.LIMITS.MAX_DRAFT_CHARS, 20000);
+  assert.equal(protocol.LIMITS.MAX_QUESTIONS, 2);
+});
+
+test('normalizeMode falls back to standard', () => {
+  assert.equal(protocol.normalizeMode('expert'), 'expert');
+  assert.equal(protocol.normalizeMode('light'), 'light');
+  assert.equal(protocol.normalizeMode('nope'), 'standard');
+  assert.equal(protocol.normalizeMode(undefined), 'standard');
+  assert.equal(protocol.normalizeMode('EXPERT'), 'standard');
+});
+
+test('normalizeScenario falls back to auto', () => {
+  assert.equal(protocol.normalizeScenario('code'), 'code');
+  assert.equal(protocol.normalizeScenario('nope'), 'auto');
+  assert.equal(protocol.normalizeScenario(null), 'auto');
+});
+
+test('normalizeModel requires provider and model', () => {
+  assert.deepEqual(protocol.normalizeModel({ provider: 'deepseek-account', model: 'deepseek-flash' }), {
+    provider: 'deepseek-account',
+    model: 'deepseek-flash',
+  });
+  assert.deepEqual(
+    protocol.normalizeModel({ provider: ' deepseek-account ', model: 'deepseek-flash', reasoningEffort: ' max ' }),
+    { provider: 'deepseek-account', model: 'deepseek-flash', reasoningEffort: 'max' },
+  );
+  assert.equal(protocol.normalizeModel({ provider: '', model: 'x' }), null);
+  assert.equal(protocol.normalizeModel({ provider: 'x' }), null);
+  assert.equal(protocol.normalizeModel('x/y'), null);
+  assert.equal(protocol.normalizeModel(null), null);
+});
+
+test('tokenBudgetFor picks the reasoning budget', () => {
+  assert.equal(protocol.tokenBudgetFor(undefined), 4096);
+  assert.equal(protocol.tokenBudgetFor(''), 4096);
+  assert.equal(protocol.tokenBudgetFor('max'), 8000);
+});
+
+test('validateEnhance accepts a normal body', () => {
+  const result = protocol.validateEnhance({
+    draft: 'write a poem',
+    mode: 'expert',
+    scenario: 'writing',
+    sessionId: 's-1',
+    locale: 'en',
+    hints: '  about the sea  ',
+    model: { provider: 'deepseek-account', model: 'deepseek-flash' },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.draft, 'write a poem');
+  assert.equal(result.value.mode, 'expert');
+  assert.equal(result.value.scenario, 'writing');
+  assert.equal(result.value.sessionId, 's-1');
+  assert.equal(result.value.locale, 'en');
+  assert.equal(result.value.hints, 'about the sea');
+  assert.deepEqual(result.value.model, { provider: 'deepseek-account', model: 'deepseek-flash' });
+});
+
+test('validateEnhance rejects missing, empty, and oversized drafts', () => {
+  assert.equal(protocol.validateEnhance(null).ok, false);
+  assert.equal(protocol.validateEnhance({ draft: '   ' }).ok, false);
+  assert.equal(protocol.validateEnhance({ draft: '   ' }).error.code, 'BAD_REQUEST');
+  const oversized = protocol.validateEnhance({ draft: 'x'.repeat(protocol.LIMITS.MAX_DRAFT_CHARS + 1) });
+  assert.equal(oversized.ok, false);
+  assert.equal(oversized.error.details.actual, protocol.LIMITS.MAX_DRAFT_CHARS + 1);
+});
+
+test('validateEnhance normalizes hostile input instead of throwing', () => {
+  const result = protocol.validateEnhance({
+    draft: 'draft',
+    mode: 42,
+    scenario: 'weird',
+    locale: 'fr',
+    sessionId: { toString: () => 'nope' },
+    hints: ['not', 'a', 'string'],
+    model: 'not-an-object',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.value.mode, 'standard');
+  assert.equal(result.value.scenario, 'auto');
+  assert.equal(result.value.locale, 'zh');
+  assert.equal(result.value.sessionId, '');
+  assert.equal(result.value.hints, '');
+  assert.equal(result.value.model, null);
+});
+
+test('validateRefine requires a draft and an instruction', () => {
+  assert.equal(protocol.validateRefine({}).ok, false);
+  const missingInstruction = protocol.validateRefine({ draft: 'draft' });
+  assert.equal(missingInstruction.ok, false);
+  assert.equal(missingInstruction.error.message, 'instruction is empty');
+
+  const ok = protocol.validateRefine({ draft: 'draft', instruction: 'shorter', previous: 'older' });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.value.instruction, 'shorter');
+  assert.equal(ok.value.previous, 'older');
+});
+
+test('validateRefine enforces the previous-prompt and instruction limits', () => {
+  const longPrevious = protocol.validateRefine({
+    draft: 'draft',
+    instruction: 'x',
+    previous: 'p'.repeat(protocol.LIMITS.MAX_PREVIOUS_CHARS + 1),
+  });
+  assert.equal(longPrevious.ok, false);
+
+  const longInstruction = protocol.validateRefine({
+    draft: 'draft',
+    instruction: 'x'.repeat(protocol.LIMITS.MAX_INSTRUCTION_CHARS + 1),
+  });
+  assert.equal(longInstruction.ok, false);
+  assert.equal(longInstruction.error.message, 'instruction is too long');
+});
