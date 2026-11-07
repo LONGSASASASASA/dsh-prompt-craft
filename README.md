@@ -31,11 +31,11 @@
 需要 DSH `>= 0.2.2-rc.1`。
 
 ```bash
-# 从 npm（发布后）
-dsh plugin --profile desktop add dsh-prompt-craft
+# 直接从 GitHub 安装（推荐，无需 npm 发布）
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.1.0
 
-# 或直接从 GitHub 安装
-dsh plugin --profile desktop add github:you/dsh-prompt-craft#v0.1.0
+# 或从 npm（发布后）
+dsh plugin --profile desktop add dsh-prompt-craft
 
 # 本地开发：直接装本地目录（pnpm link 语义）
 dsh plugin --profile desktop add file:C:\path\to\dsh-prompt-craft

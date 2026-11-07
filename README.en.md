@@ -31,11 +31,11 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
-# From npm (once published)
-dsh plugin --profile desktop add dsh-prompt-craft
+# Straight from GitHub (no npm publish needed)
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.1.0
 
-# Or straight from GitHub
-dsh plugin --profile desktop add github:you/dsh-prompt-craft#v0.1.0
+# Or from npm (once published)
+dsh plugin --profile desktop add dsh-prompt-craft
 
 # Local development: install the checkout itself (pnpm link semantics)
 dsh plugin --profile desktop add file:/path/to/dsh-prompt-craft
