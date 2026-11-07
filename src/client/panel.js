@@ -431,7 +431,7 @@ function EnhancePanel(props) {
       )
     : null;
 
-  const resultFooter = hasResult
+  const resultFooter = hasResult && state.status !== 'applied'
     ? h(
         'div',
         { className: 'dpc-footer' },
