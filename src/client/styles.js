@@ -32,12 +32,27 @@ const CSS = `
 .dpc-btn[disabled] { cursor: default; opacity: .38; }
 .dpc-btn[disabled]:hover { background: transparent; }
 .dpc-btn svg { width: 16px; height: 16px; display: block; }
+/* The panel's exit button: a soft red chip so it reads as "close" at a glance. */
+.dpc-close {
+  border-radius: 8px;
+  background: rgba(229, 72, 77, .14);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d33d43) 16%, transparent);
+  color: var(--dsw-alias-state-error-primary, #d33d43);
+  box-shadow: inset 0 0 0 1px rgba(229, 72, 77, .26);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dsw-alias-state-error-primary, #d33d43) 30%, transparent);
+}
+.dpc-close:hover {
+  background: rgba(229, 72, 77, .24);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #d33d43) 28%, transparent);
+  color: var(--dsw-alias-state-error-primary, #d33d43);
+}
 
 /**
  * The panel lives in the composer dock, whose parent (the composer stack) also
- * holds the input card. The input card is inset 16px on each side inside that
- * stack, so the same inline inset here makes the two boxes share their left and
- * right edges at every window width instead of the panel spanning the padding.
+ * holds the input card. The inline inset below is only the first-paint fallback:
+ * panel.js measures the card and overrides it with the card's real insets, so
+ * the two boxes share their left and right edges in every layout (sidebars open
+ * or closed, any window width) instead of the panel spanning the padding.
  */
 .dpc-panel {
   position: relative;

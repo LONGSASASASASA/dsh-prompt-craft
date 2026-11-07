@@ -332,6 +332,11 @@ test('clicking the button enhances the draft, then the panel applies the result'
   const panel = EnhancePanel({ sessionId: 'session-1', inputActions });
   assert.equal(panel.type, 'div');
   assert.equal(panel.props.className, 'dpc-panel');
+  const closeButton = findNode(panel, (node) => node.props
+    && typeof node.props.className === 'string'
+    && node.props.className.split(' ').indexOf('dpc-close') !== -1);
+  assert.ok(closeButton, 'the panel exit button must carry the dpc-close chip class');
+  assert.equal(closeButton.props['aria-label'], '关闭');
   assert.match(textOf(panel), /提示词增强/);
   assert.match(textOf(panel), /改得更具体了/);
   assert.match(textOf(panel), /让读者读完就知道海是什么样子/);
