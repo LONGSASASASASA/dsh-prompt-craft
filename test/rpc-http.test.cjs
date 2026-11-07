@@ -82,9 +82,18 @@ function hangingLlm() {
     stream() {
       return {
         [Symbol.asyncIterator]() {
+          let settle;
           return {
-            next: () => new Promise(() => {}),
-            return: async () => ({ done: true, value: undefined }),
+            // Behaves like a real async generator: the pending next() settles
+            // when the consumer calls return(), so no promise is left dangling.
+            next: () =>
+              new Promise((resolve) => {
+                settle = resolve;
+              }),
+            return: () => {
+              if (settle) settle({ done: true, value: undefined });
+              return Promise.resolve({ done: true, value: undefined });
+            },
           };
         },
       };
