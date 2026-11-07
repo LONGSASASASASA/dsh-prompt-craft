@@ -6,6 +6,22 @@
 
 [中文](./README.md)
 
+## What it looks like
+
+The ✨ button in the composer tool row (just left of the model picker), lit up when there is a draft:
+
+![The ✨ button in the composer](docs/screenshots/composer-typed.png)
+
+Click it and the panel opens above the composer — the goal the rewrite serves and how the aim was raised at the top, the line diff and accept controls below:
+
+![Result panel: goal, elevation and per-hunk accept](docs/screenshots/panel-result.png)
+
+Tick the changes you want; after applying, the merged prompt is written back into the composer and can be undone:
+
+![Applied back into the composer](docs/screenshots/panel-applied.png)
+
+Screenshots are from a real v0.2.1 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
+
 ## Why "goal first"
 
 Clarifying the wording is not enough: you still may not get the result you wanted. This plugin works on the **goal** before the **phrasing**:
@@ -65,13 +81,36 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - ⚙️ **Settings page** — UI language, default intensity, default scenario, model override.
 - 🌏 **Chinese and English UI** — follows the browser language, overridable in settings.
 
+## How it compares
+
+There are several prompt-related plugins in the DSH ecosystem. This only compares publicly visible capabilities (from each project's README and code, read in November 2026; their behaviour may change as they update):
+
+| Capability | **dsh-prompt-craft** | dsh-prompt-crafter | dsh-voice-prompt-enhancer | dsh-prompt |
+| --- | --- | --- | --- | --- |
+| Focus | Goal-oriented rewrite | One-click rewrite | Rewrite + voice input | Template library (no rewriting) |
+| Entry point | Composer toolbar ✨ + inline panel | "Optimize" button on the right | Composer toolbar ✨ | Left-side "Prompt" / `/prompt` |
+| Names and shows the goal | ✅ "Goal it serves" | — | — | — |
+| Elevation notes (from X to Y) | ✅ | — | — | — |
+| Diff preview | ✅ line-level, sections / compare views | — | — | — |
+| Per-hunk accept | ✅ | — | — | — |
+| Asks when under-specified | ✅ 1–2 questions | — | — | — |
+| Refine loop | ✅ keeps the same goal | — | ✅ continue optimizing | — |
+| Intensities / modes | 3 + automatic scenario | 3 + custom system prompt | 5 modes | — |
+| Model strategy | Follows the session, can override | Free channel / follow / manual | Multi-model chain | — |
+| Voice input | — | — | ✅ | — |
+| Template library | — | — | inside modes | ✅ 24 presets + custom |
+| Undo | Un-tick hunks / undo back to the original | Ctrl+Z | Whole-text revert | Undo after insert |
+| License | MIT | MIT | Apache-2.0 | MIT |
+
+If all you want is a template picker or voice input, those other plugins fit better. If what matters is **whether the rewrite points the right way, what exactly changed, and being able to keep only part of it**, this plugin is built for that.
+
 ## Install
 
 Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.1
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
