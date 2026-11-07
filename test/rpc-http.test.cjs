@@ -286,11 +286,19 @@ test('handler reports a failed finish as LLM_FAILED', async () => {
 });
 
 test('handler returns 504 when the model hangs', async () => {
-  const { res } = await invoke(handlerWith({ getLlm: () => hangingLlm(), timeoutMs: 25 }), {
-    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
-  });
-  assert.equal(res.statusCode, 504);
-  assert.equal(jsonOf(res).error.code, 'TIMEOUT');
+  // readStream unrefs its timeout timer so a stuck call never keeps the host
+  // process alive. Under node:test the loop would drain before the timer fires,
+  // so hold a ref'd timer open for the duration of the assertion.
+  const keepAlive = setTimeout(() => {}, 200);
+  try {
+    const { res } = await invoke(handlerWith({ getLlm: () => hangingLlm(), timeoutMs: 25 }), {
+      body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+    });
+    assert.equal(res.statusCode, 504);
+    assert.equal(jsonOf(res).error.code, 'TIMEOUT');
+  } finally {
+    clearTimeout(keepAlive);
+  }
 });
 
 test('handler supports the refine method', async () => {
