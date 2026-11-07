@@ -29,6 +29,21 @@ test('buildSystem forbids inventing facts while asking for elevation', () => {
   assert.match(system, /Broaden where it changes the answer/);
 });
 
+test('buildSystem asks for a compressed prompt with a per-mode budget', () => {
+  const standard = templates.buildSystem({ mode: 'standard', scenario: 'general', locale: 'zh' });
+  assert.match(standard, /Compress before you expand\./);
+  assert.match(standard, /Never trade information for brevity\./);
+  assert.match(standard, /compact classical register/);
+  assert.match(standard, /Budget: at or below the draft/);
+  assert.match(standard, /Check the length before returning/);
+
+  const expert = templates.buildSystem({ mode: 'expert', scenario: 'general', locale: 'en' });
+  assert.match(expert, /Budget: at most 1\.4× the draft/);
+
+  const light = templates.buildSystem({ mode: 'light', scenario: 'general', locale: 'en' });
+  assert.match(light, /Budget: at most the draft/);
+});
+
 test('buildSystem mode selection is exclusive and falls back to standard', () => {
   const light = templates.buildSystem({ mode: 'light', scenario: 'general', locale: 'en' });
   assert.match(light, /LIGHT EDIT/);

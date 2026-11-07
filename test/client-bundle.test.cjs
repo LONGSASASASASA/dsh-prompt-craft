@@ -337,6 +337,10 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.match(textOf(panel), /让读者读完就知道海是什么样子/);
   assert.match(textOf(panel), /从"写一首诗"抬到"让读者看见海"/);
   assert.match(textOf(panel), /加了行数约束/);
+  const compare = findNode(panel, (node) => node.props && node.props.className === 'dpc-split');
+  assert.ok(compare, 'the rewrite must open in the compare view by default');
+  assert.match(textOf(compare), /write a poem about the sea/);
+  assert.match(textOf(compare), /Write a poem about the sea, in four lines\./);
 
   const applyAll = findButton(panel, '全部应用');
   assert.ok(applyAll, 'the apply-all button must be rendered');

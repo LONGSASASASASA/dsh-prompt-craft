@@ -194,7 +194,7 @@ function presentResult(sessionId, response, baseDraft) {
     error: null,
     applied: false,
     appliedText: '',
-    view: 'sections',
+    view: 'compare',
   });
   return { kind: 'enhanced', prompt: prompt };
 }
@@ -239,7 +239,7 @@ async function enhance(sessionId, draft, overrides) {
     applied: false,
     appliedText: '',
     showRefine: false,
-    view: 'sections',
+    view: 'compare',
     meta: null,
   });
 

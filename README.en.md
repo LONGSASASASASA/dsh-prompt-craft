@@ -12,7 +12,7 @@ The ✨ button in the composer tool row (just left of the model picker), lit up 
 
 ![The ✨ button in the composer](docs/screenshots/composer-typed.png)
 
-Click it and the panel opens above the composer — the goal the rewrite serves and how the aim was raised at the top, the line diff and accept controls below:
+Click it and the panel opens above the composer, sharing the composer's left and right edges — a light blue gradient outline, the goal the rewrite serves and how the aim was raised at the top, and **Compare** as the default view:
 
 ![Result panel: goal, elevation and per-hunk accept](docs/screenshots/panel-result.png)
 
@@ -20,7 +20,11 @@ Tick the changes you want; after applying, the merged prompt is written back int
 
 ![Applied back into the composer](docs/screenshots/panel-applied.png)
 
-Screenshots are from a real v0.2.1 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
+What lands in the composer is the tighter version — the same requirements in fewer characters:
+
+![The composer after applying](docs/screenshots/composer-applied.png)
+
+Screenshots are from a real v0.2.2 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
 
 ## Why "goal first"
 
@@ -34,7 +38,7 @@ Clarifying the wording is not enough: you still may not get the result you wante
 
 The result panel shows *the goal* and *how the aim was raised* (from X to Y), so you can see why the rewrite looks the way it does.
 
-### A real run (v0.2.0, deepseek-flash)
+### A real run (v0.2.2, deepseek-flash)
 
 Draft, one line:
 
@@ -42,23 +46,18 @@ Draft, one line:
 
 The panel then shows:
 
-- **Goal it serves** — get an image-compression script that actually runs in the project, shrinking images without breaking existing references, the build, or the originals.
+- **Goal it serves** — get a script that runs directly in the project, shrinks the images to an acceptable quality, and tells you how to run it and check the result.
 - **How the aim was raised**:
-  1. From "write a compression script" to "safely shrink image bytes without breaking references or the build", adding "only touch images" and "never overwrite originals by default";
-  2. Making "done" concrete: per-file size comparison, a total, and how quality / build get verified — not just "the script runs";
-  3. Adding engineering constraints: recurse while skipping `node_modules` / `.git` / `build`, skip already-compressed images, keep going when a single file fails.
+  1. From "write a script" to "a runnable, verifiable, reusable compression script": language, directory, formats, output location and run command are pinned;
+  2. Turning "compress them" into an acceptance criterion: per-image before/after sizes and the total ratio make the result checkable;
+  3. Adding the risk boundary: back up before overwriting originals, skip already-compressed files, so project assets are not damaged.
+- **Notes** state the compression, e.g. "25 characters → about 125, still under the 150-character cap for a one-line draft".
 
-The rewritten prompt (excerpt):
+The rewritten prompt (full text, 125 characters):
 
-> Write an image-compression script that runs directly from `<project root>` to shrink the project's images without breaking existing references or the build.
->
-> Context and inputs: project root / runtime and language / formats to process / dependency limits (all left as `<...>` placeholders — nothing invented for you)
->
-> Requirements: do not overwrite originals by default — write to `<output dir>` keeping the directory tree; recurse and skip `node_modules`, `.git`, `build`; skip images that are already compressed; print per-file before/after sizes; a single failure must not abort the run.
->
-> Done means: the script runs on a real project; total size clearly drops with no visible quality loss; running it with no flags leaves originals and project layout untouched.
+> Write a runnable script that compresses the project's images as small as possible while keeping the quality acceptable. Needs: use `<language/version>`; scan `<directory>` for `<formats>`; `<lossy/lossless>` with target quality `<value>`; write results to `<output directory>`, back up before touching originals; skip already-compressed files; print per-image before/after sizes and the total ratio; end with the run command.
 
-Same model, same draft, if you only ask it to "make this clearer", you typically get "Please write a script that compresses images, requiring…". The difference here is: goal first, then structure, then wording.
+Compared with just "make it clearer", what appears here is the **goal, the acceptance criterion and the risk boundary** — while the character count is compressed to roughly the draft's own scale. Goal first, then structure, then the tightest wording that still carries everything.
 
 ## Why "diff first"
 
@@ -75,7 +74,9 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🎯 **Visible goal and elevation** — the panel shows the goal the rewrite serves and what the aim was raised from and to.
 - 🎚 **Three intensities** — Light (tidy wording, state the goal) / Goal-first (rewrite around the outcome you want) / Elevated (outcome, success criteria, boundaries and trade-offs in one brief).
 - 🧭 **Automatic scenario detection** — code / writing / research / agent / general, or pick one manually.
-- 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a side-by-side view, apply-all, and undo.
+- 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a compare view (default) or sections view, apply-all, and undo.
+- ✂️ **Terse output** — compress the character count without dropping a requirement; Chinese may use a compact classical register (须 / 勿 / 免 / four-character phrases) but readability comes first, and a one-line draft gets a hard length cap.
+- 🪟 **Same width as the composer** — the panel shares the composer's left and right edges, with a light blue gradient outline that stays clear in light and dark themes.
 - ❓ **Clarifying questions** — answer 1–2 questions and the draft is rewritten with those answers folded in.
 - 🔁 **Refine loop** — give the last rewrite another instruction.
 - ⚙️ **Settings page** — UI language, default intensity, default scenario, model override.
@@ -91,7 +92,7 @@ There are several prompt-related plugins in the DSH ecosystem. This only compare
 | Entry point | Composer toolbar ✨ + inline panel | "Optimize" button on the right | Composer toolbar ✨ | Left-side "Prompt" / `/prompt` |
 | Names and shows the goal | ✅ "Goal it serves" | — | — | — |
 | Elevation notes (from X to Y) | ✅ | — | — | — |
-| Diff preview | ✅ line-level, sections / compare views | — | — | — |
+| Diff preview | ✅ line-level, compare by default (sections / compare) | — | — | — |
 | Per-hunk accept | ✅ | — | — | — |
 | Asks when under-specified | ✅ 1–2 questions | — | — | — |
 | Refine loop | ✅ keeps the same goal | — | ✅ continue optimizing | — |
@@ -110,7 +111,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.1
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.2
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -132,7 +133,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 1. Type a draft into the composer (a sentence, a requirement, a half-written prompt — anything).
 2. Click ✨.
 3. A panel opens above the composer:
-   - switch between **Sections** and **Compare**;
+   - **Compare** is the default view (original and rewrite side by side); switch to **Sections** for the per-hunk view;
    - tick the changes you want, then "Apply selected n/m" or "Apply all";
    - click "Refine…" and type an instruction to iterate.
 4. After applying, edit or send as usual; "Undo" restores the pre-enhancement draft.
@@ -161,7 +162,7 @@ By default the plugin uses exactly the model the current session is using (inclu
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 95 cases
+npm test           # node --test, 96 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

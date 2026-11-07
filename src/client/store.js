@@ -134,7 +134,7 @@ const SESSION_DEFAULTS = Object.freeze({
   result: null,
   hunks: [],
   accepted: {},
-  view: 'sections',
+  view: 'compare',
   error: null,
   answers: '',
   refineText: '',
