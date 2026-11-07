@@ -273,18 +273,48 @@ function EnhancePanel(props) {
       )
     : null;
 
-  const summaryBlock = state.result !== null && state.result.kind === 'enhanced' && (state.result.summary || (state.result.notes && state.result.notes.length > 0))
+  const enhanced = state.result !== null && state.result.kind === 'enhanced' ? state.result : null;
+
+  const goalBlock = enhanced && enhanced.goal
+    ? h(
+        'div',
+        { className: 'dpc-goal' },
+        h('span', { className: 'dpc-goal-label' }, t('result.goal')),
+        h('p', { className: 'dpc-goal-text' }, enhanced.goal),
+      )
+    : null;
+
+  const summaryBlock = enhanced && (enhanced.summary || (enhanced.notes && enhanced.notes.length > 0) || (enhanced.elevation && enhanced.elevation.length > 0))
     ? h(
         'div',
         null,
-        state.result.summary ? h('p', { className: 'dpc-summary' }, state.result.summary) : null,
-        state.result.notes && state.result.notes.length > 0
+        enhanced.summary ? h('p', { className: 'dpc-summary' }, enhanced.summary) : null,
+        enhanced.elevation && enhanced.elevation.length > 0
           ? h(
-              'ul',
-              { className: 'dpc-notes' },
-              state.result.notes.map(function renderNote(note, index) {
-                return h('li', { key: 'n' + index }, note);
-              }),
+              'div',
+              { className: 'dpc-block' },
+              h('span', { className: 'dpc-goal-label' }, t('result.elevation')),
+              h(
+                'ul',
+                { className: 'dpc-notes' },
+                enhanced.elevation.map(function renderElevation(item, index) {
+                  return h('li', { key: 'e' + index }, item);
+                }),
+              ),
+            )
+          : null,
+        enhanced.notes && enhanced.notes.length > 0
+          ? h(
+              'div',
+              { className: 'dpc-block' },
+              h('span', { className: 'dpc-goal-label' }, t('result.notes')),
+              h(
+                'ul',
+                { className: 'dpc-notes' },
+                enhanced.notes.map(function renderNote(note, index) {
+                  return h('li', { key: 'n' + index }, note);
+                }),
+              ),
             )
           : null,
       )
@@ -444,6 +474,7 @@ function EnhancePanel(props) {
     errorBlock,
     questionsBlock,
     emptyResult,
+    goalBlock,
     summaryBlock,
     viewToggle,
     hunkList,

@@ -49,13 +49,28 @@ test('normalizeResult accepts the enhanced shape', () => {
     prompt: 'Better prompt',
     scenario: 'code',
     summary: 's'.repeat(500),
+    goal: 'Ship a working parser',
+    elevation: ['from "fix the bug" to "make the parser trustworthy"'],
     notes: [' one ', 'two', 'three', 'four', 'five'],
   });
   assert.equal(result.kind, 'enhanced');
   assert.equal(result.prompt, 'Better prompt');
   assert.equal(result.scenario, 'code');
   assert.equal(result.summary.length, 400);
+  assert.equal(result.goal, 'Ship a working parser');
+  assert.deepEqual(result.elevation, ['from "fix the bug" to "make the parser trustworthy"']);
   assert.equal(result.notes.length, 4);
+});
+
+test('normalizeResult fills goal and elevation defaults', () => {
+  const result = normalizeResult({ kind: 'enhanced', prompt: 'Prompt with a goal', goal: '  g '.repeat(100) });
+  assert.equal(result.kind, 'enhanced');
+  assert.equal(result.goal.length, 200);
+  assert.deepEqual(result.elevation, []);
+
+  const plain = normalizeResult({ kind: 'enhanced', prompt: 'no extra fields' });
+  assert.equal(plain.goal, '');
+  assert.deepEqual(plain.elevation, []);
 });
 
 test('normalizeResult tolerates a missing kind when a prompt exists', () => {

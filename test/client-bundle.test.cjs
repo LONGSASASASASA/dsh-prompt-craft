@@ -204,8 +204,10 @@ function enhancedPayload(request) {
     ok: true,
     result: {
       kind: 'enhanced',
+      goal: '让读者读完就知道海是什么样子',
       prompt: 'Write a poem about the sea, in four lines.',
       summary: '改得更具体了',
+      elevation: ['从"写一首诗"抬到"让读者看见海"'],
       notes: ['加了行数约束'],
       scenario: 'writing',
     },
@@ -332,6 +334,8 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.equal(panel.props.className, 'dpc-panel');
   assert.match(textOf(panel), /提示词增强/);
   assert.match(textOf(panel), /改得更具体了/);
+  assert.match(textOf(panel), /让读者读完就知道海是什么样子/);
+  assert.match(textOf(panel), /从"写一首诗"抬到"让读者看见海"/);
   assert.match(textOf(panel), /加了行数约束/);
 
   const applyAll = findButton(panel, '全部应用');

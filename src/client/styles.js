@@ -117,6 +117,26 @@ const CSS = `
 @keyframes dpc-spin { to { transform: rotate(360deg); } }
 
 .dpc-summary { margin: 0; opacity: .85; }
+.dpc-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-color-border-weak, rgba(127,127,127,.26));
+  background: var(--dsw-color-surface-raised, rgba(127,127,127,.06));
+}
+.dpc-goal-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .02em;
+  text-transform: none;
+  opacity: .62;
+  margin-top: 4px;
+}
+.dpc-goal-label:first-child { margin-top: 0; }
+.dpc-goal-text { margin: 0; font-size: 13px; line-height: 1.45; }
+.dpc-block { margin-top: 6px; }
 .dpc-notes { margin: 0; padding-left: 18px; opacity: .78; font-size: 12px; }
 .dpc-notes li { margin: 1px 0; }
 

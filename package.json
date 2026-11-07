@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.1.0",
-  "description": "Prompt enhancement for DeepSeek Harness: one-click rewrite with diff review, per-section accept, and clarifying questions.",
+  "version": "0.2.0",
+  "description": "Goal-oriented prompt enhancement for DeepSeek Harness: rewrites drafts around the outcome they serve, with diff review, per-section accept, clarifying questions and a refine loop.",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {

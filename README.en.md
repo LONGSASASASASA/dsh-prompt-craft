@@ -1,10 +1,48 @@
 # dsh-prompt-craft
 
-> Press ✨ in the DSH composer and turn a rough draft into a sharper, more actionable prompt — **review the diff first, then accept it hunk by hunk**.
+> Press ✨ in the DSH composer and turn a rough draft into a **goal-oriented** prompt: the plugin works out the outcome you actually want, then raises the aim — broader context, deeper assumptions and success criteria — **so review the diff first, then accept it hunk by hunk**.
 
 `dsh-prompt-craft` is a prompt-enhancement plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It adds a ✨ button to the composer tool row (just left of the model picker). One click sends the current draft to the model and shows the rewrite in an inline panel with a readable diff, per-hunk selection, and a refine loop.
 
 [中文](./README.md)
+
+## Why "goal first"
+
+Clarifying the wording is not enough: you still may not get the result you wanted. This plugin works on the **goal** before the **phrasing**:
+
+- **Name the real goal** — when the draft is just "write me a script", the model first decides what outcome you are after (one that runs once, or one you can maintain?), states it in one sentence in `goal`, and makes the prompt serve it.
+- **Raise the aim** — from "finish this task" to "solve this problem / create this value", but only as far as your intent and domain allow; nothing invented.
+- **Broaden the view** — who the result is for, what context it enters, adjacent constraints, what must keep working, the real risks and the alternatives worth considering.
+- **Deepen the thinking** — hidden assumptions laid out, what "done well" means, how the result will be judged, and the trade-off that matters most.
+- **Stay faithful** — no fabricated facts, no requirements you did not imply; when a key detail is missing it asks instead of guessing.
+
+The result panel shows *the goal* and *how the aim was raised* (from X to Y), so you can see why the rewrite looks the way it does.
+
+### A real run (v0.2.0, deepseek-flash)
+
+Draft, one line:
+
+> help me write a script to compress the images in this project
+
+The panel then shows:
+
+- **Goal it serves** — get an image-compression script that actually runs in the project, shrinking images without breaking existing references, the build, or the originals.
+- **How the aim was raised**:
+  1. From "write a compression script" to "safely shrink image bytes without breaking references or the build", adding "only touch images" and "never overwrite originals by default";
+  2. Making "done" concrete: per-file size comparison, a total, and how quality / build get verified — not just "the script runs";
+  3. Adding engineering constraints: recurse while skipping `node_modules` / `.git` / `build`, skip already-compressed images, keep going when a single file fails.
+
+The rewritten prompt (excerpt):
+
+> Write an image-compression script that runs directly from `<project root>` to shrink the project's images without breaking existing references or the build.
+>
+> Context and inputs: project root / runtime and language / formats to process / dependency limits (all left as `<...>` placeholders — nothing invented for you)
+>
+> Requirements: do not overwrite originals by default — write to `<output dir>` keeping the directory tree; recurse and skip `node_modules`, `.git`, `build`; skip images that are already compressed; print per-file before/after sizes; a single failure must not abort the run.
+>
+> Done means: the script runs on a real project; total size clearly drops with no visible quality loss; running it with no flags leaves originals and project layout untouched.
+
+Same model, same draft, if you only ask it to "make this clearer", you typically get "Please write a script that compresses images, requiring…". The difference here is: goal first, then structure, then wording.
 
 ## Why "diff first"
 
@@ -18,7 +56,8 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 ## Features
 
 - ✨ **One-click enhancement** — a composer toolbar button; cancels while running.
-- 🎚 **Three intensities** — Light (tighten the wording) / Standard (add structure and constraints) / Expert (rewrite as a full spec).
+- 🎯 **Visible goal and elevation** — the panel shows the goal the rewrite serves and what the aim was raised from and to.
+- 🎚 **Three intensities** — Light (tidy wording, state the goal) / Goal-first (rewrite around the outcome you want) / Elevated (outcome, success criteria, boundaries and trade-offs in one brief).
 - 🧭 **Automatic scenario detection** — code / writing / research / agent / general, or pick one manually.
 - 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a side-by-side view, apply-all, and undo.
 - ❓ **Clarifying questions** — answer 1–2 questions and the draft is rewritten with those answers folded in.
@@ -32,7 +71,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.1.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.0
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -66,7 +105,7 @@ The settings page lives in DSH's plugin settings ("Prompt enhancement" section):
 | Option | Description |
 | --- | --- |
 | UI language | Follow the browser / Chinese / English |
-| Default intensity | Light / Standard / Expert (switchable in the panel) |
+| Default intensity | Light / Goal-first / Elevated (switchable in the panel) |
 | Default scenario | Auto / Code / Writing / Research / Agent / General |
 | Model | Follow the current session's model by default; optionally pin provider / model / reasoning effort |
 
@@ -83,7 +122,7 @@ By default the plugin uses exactly the model the current session is using (inclu
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 92 cases
+npm test           # node --test, 95 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

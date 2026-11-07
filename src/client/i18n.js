@@ -10,7 +10,7 @@
 
 const ZH = {
   'button.label': '增强提示词',
-  'button.tooltip': '用 AI 改写当前草稿：diff 预览、分段接受',
+  'button.tooltip': '用 AI 改写当前草稿：以目标为导向、diff 预览、分段接受',
   'button.empty': '先写点内容再增强',
 
   'panel.title': '提示词增强',
@@ -19,12 +19,12 @@ const ZH = {
   'panel.close': '关闭',
 
   'mode.label': '力度',
-  'mode.light': '轻',
-  'mode.standard': '标准',
-  'mode.expert': '专家',
-  'mode.light.hint': '只理顺表达与结构',
-  'mode.standard.hint': '补结构、补约束',
-  'mode.expert.hint': '按高质量提示词重写',
+  'mode.light': '轻改',
+  'mode.standard': '目标导向',
+  'mode.expert': '立意升维',
+  'mode.light.hint': '理顺表达，把目标说清楚',
+  'mode.standard.hint': '围绕真正想要的结果重写',
+  'mode.expert.hint': '目标、成功标准、边界与取舍一次写全',
 
   'scenario.label': '场景',
   'scenario.auto': '自动',
@@ -36,6 +36,8 @@ const ZH = {
 
   'result.summary': '改写说明',
   'result.notes': '主要改动',
+  'result.goal': '真正的目标',
+  'result.elevation': '立意升维',
   'result.acceptAll': '全部应用',
   'result.acceptSelected': '应用选中 {n}/{total}',
   'result.discard': '放弃',
@@ -91,7 +93,7 @@ const ZH = {
 
 const EN = {
   'button.label': 'Enhance prompt',
-  'button.tooltip': 'Rewrite the draft with AI: diff preview, per-section accept',
+  'button.tooltip': 'Rewrite the draft around its real goal: diff preview, per-section accept',
   'button.empty': 'Write something first',
 
   'panel.title': 'Prompt enhancement',
@@ -101,11 +103,11 @@ const EN = {
 
   'mode.label': 'Strength',
   'mode.light': 'Light',
-  'mode.standard': 'Standard',
-  'mode.expert': 'Expert',
-  'mode.light.hint': 'Tidy wording and structure only',
-  'mode.standard.hint': 'Add structure and constraints',
-  'mode.expert.hint': 'Rewrite as a high-quality prompt',
+  'mode.standard': 'Goal-first',
+  'mode.expert': 'Elevated',
+  'mode.light.hint': 'Tidy wording, make the goal explicit',
+  'mode.standard.hint': 'Rewrite around the outcome you actually want',
+  'mode.expert.hint': 'Outcome, success criteria, boundaries and trade-offs',
 
   'scenario.label': 'Scenario',
   'scenario.auto': 'Auto',
@@ -117,6 +119,8 @@ const EN = {
 
   'result.summary': 'What changed',
   'result.notes': 'Edits',
+  'result.goal': 'Goal it serves',
+  'result.elevation': 'How the aim was raised',
   'result.acceptAll': 'Apply all',
   'result.acceptSelected': 'Apply selected ({n}/{total})',
   'result.discard': 'Discard',

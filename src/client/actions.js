@@ -182,8 +182,10 @@ function presentResult(sessionId, response, baseDraft) {
     result: {
       kind: 'enhanced',
       prompt: prompt,
+      goal: typeof result.goal === 'string' ? result.goal : '',
       summary: typeof result.summary === 'string' ? result.summary : '',
       notes: Array.isArray(result.notes) ? result.notes.filter(function isText(item) { return typeof item === 'string' && item; }).slice(0, 4) : [],
+      elevation: Array.isArray(result.elevation) ? result.elevation.filter(function isText(item) { return typeof item === 'string' && item; }).slice(0, 3) : [],
       scenario: typeof result.scenario === 'string' ? result.scenario : '',
     },
     hunks: hunks,

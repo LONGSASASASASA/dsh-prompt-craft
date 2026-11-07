@@ -8,11 +8,25 @@ const templates = require('../src/host/templates.cjs');
 test('buildSystem contains the base rules, mode rules, scenario rules and schema', () => {
   const system = templates.buildSystem({ mode: 'expert', scenario: 'code', locale: 'zh' });
   assert.match(system, /prompt editor working inside a chat composer/);
+  assert.match(system, /Start from the goal\./);
+  assert.match(system, /Raise the draft to that goal\./);
   assert.match(system, /EXPERT EDIT/);
+  assert.match(system, /elevated brief/);
   assert.match(system, /Scenario \(code\)/);
-  assert.match(system, /用中文写 summary/);
+  assert.match(system, /real problem the code should solve/);
+  assert.match(system, /用中文写 goal/);
   assert.match(system, /"kind":"enhanced"/);
+  assert.match(system, /"goal":/);
+  assert.match(system, /"elevation":/);
   assert.match(system, /"kind":"questions"/);
+});
+
+test('buildSystem forbids inventing facts while asking for elevation', () => {
+  const system = templates.buildSystem({ mode: 'standard', scenario: 'general', locale: 'en' });
+  assert.match(system, /Stay faithful\./);
+  assert.match(system, /never from invented facts/);
+  assert.match(system, /Deepen where it changes the answer/);
+  assert.match(system, /Broaden where it changes the answer/);
 });
 
 test('buildSystem mode selection is exclusive and falls back to standard', () => {
@@ -23,7 +37,8 @@ test('buildSystem mode selection is exclusive and falls back to standard', () =>
 
   const fallback = templates.buildSystem({ mode: 'nonsense', scenario: 'general', locale: 'en' });
   assert.match(fallback, /STANDARD EDIT/);
-  assert.match(fallback, /Write summary, notes and questions in English\./);
+  assert.match(fallback, /goal-first rewrite/);
+  assert.match(fallback, /Write goal, summary, elevation, notes and questions in English\./);
   assert.doesNotMatch(fallback, /Scenario \(/);
 });
 
@@ -31,7 +46,7 @@ test('buildSystem keeps the user language in the prompt field but localizes meta
   const zh = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'zh' });
   const en = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'en' });
   assert.match(zh, /prompt 字段保持草稿本身的语言/);
-  assert.match(en, /Write summary, notes and questions in English/);
+  assert.match(en, /Write goal, summary, elevation, notes and questions in English/);
   assert.notEqual(zh, en);
 });
 
@@ -101,6 +116,15 @@ test('clampNotes keeps at most four trimmed notes', () => {
   const longNote = templates.clampNotes(['x'.repeat(500)]);
   assert.equal(longNote[0].length, 160);
   assert.deepEqual(templates.clampNotes('nope'), []);
+});
+
+test('clampElevation keeps at most three trimmed elevation notes', () => {
+  const elevation = templates.clampElevation([' a ', '', null, 'b', 'c', 'd']);
+  assert.deepEqual(elevation, ['a', 'b', 'c']);
+
+  const longItem = templates.clampElevation(['x'.repeat(400)]);
+  assert.equal(longItem[0].length, 200);
+  assert.deepEqual(templates.clampElevation('nope'), []);
 });
 
 test('clampQuestions keeps at most two trimmed questions', () => {
