@@ -629,6 +629,164 @@ function openPanel(sessionId) {
   store.setSessionState(sessionId, { open: true });
 }
 
+/* ------------------------------------------------------------ weixin bot */
+
+/**
+ * @returns {Promise<any>} bridge status snapshot
+ */
+function weixinStatus() {
+  return callHost(METHODS.WEIXIN_STATUS).then((response) => response.result);
+}
+
+/**
+ * Start (or restart) the QR login; the result carries the QR payload.
+ * @returns {Promise<any>}
+ */
+function weixinStartLogin() {
+  return callHost(METHODS.WEIXIN_LOGIN).then((response) => response.result);
+}
+
+/**
+ * @param {unknown} code numeric pairing code shown inside WeChat
+ * @returns {Promise<any>}
+ */
+function weixinSubmitVerify(code) {
+  return callHost(METHODS.WEIXIN_VERIFY, { code: String(code == null ? '' : code) }).then(
+    (response) => response.result,
+  );
+}
+
+/**
+ * @returns {Promise<any>}
+ */
+function weixinLogout() {
+  return callHost(METHODS.WEIXIN_LOGOUT).then((response) => response.result);
+}
+
+/**
+ * @param {boolean} [consume] hand the messages over (default) or only peek
+ * @returns {Promise<any[]>}
+ */
+function weixinPending(consume) {
+  return callHost(METHODS.WEIXIN_PENDING, { consume: consume !== false }).then((response) => {
+    const messages = response.result && Array.isArray(response.result.messages) ? response.result.messages : [];
+    return messages;
+  });
+}
+
+/**
+ * Drop the pending queue without filling anything.
+ * @returns {Promise<any>}
+ */
+function weixinClear() {
+  return callHost(METHODS.WEIXIN_CLEAR).then((response) => response.result);
+}
+
+/**
+ * @param {unknown[]} messages
+ * @returns {string}
+ */
+function weixinDraftText(messages) {
+  const parts = [];
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const text = message && typeof message.text === 'string' ? message.text.trim() : '';
+    if (text) parts.push(text);
+  }
+  return parts.join('\n\n');
+}
+
+/**
+ * Append incoming text to the draft, keeping whatever the user already typed.
+ * @param {string} currentDraft
+ * @param {string} text
+ * @returns {string}
+ */
+function composeWeixinDraft(currentDraft, text) {
+  const base = typeof currentDraft === 'string' ? currentDraft.replace(/\s+$/, '') : '';
+  return base ? base + '\n\n' + text : text;
+}
+
+/**
+ * Write the incoming text into the composer and remember the previous draft so
+ * the notice can offer an undo.
+ * @param {unknown} sessionId
+ * @param {any} inputActions
+ * @param {string} currentDraft
+ * @param {any[]} messages
+ * @returns {string | null}
+ */
+function applyWeixinDraft(sessionId, inputActions, currentDraft, messages) {
+  const text = weixinDraftText(messages);
+  if (!text) return null;
+  const before = typeof currentDraft === 'string' ? currentDraft : '';
+  const next = composeWeixinDraft(before, text);
+  writeDraft(inputActions, next);
+  const last = messages[messages.length - 1] || {};
+  store.setSessionState(sessionId, {
+    weixinBefore: before,
+    weixinNotice: {
+      count: messages.length,
+      from: last && typeof last.from === 'string' ? last.from : '',
+      at: Date.now(),
+      filled: true,
+    },
+  });
+  return next;
+}
+
+/**
+ * Consume the queue and fill it into the composer.
+ * @param {unknown} sessionId
+ * @param {any} inputActions
+ * @param {string} currentDraft
+ * @returns {Promise<string | null>}
+ */
+async function consumeWeixin(sessionId, inputActions, currentDraft) {
+  const messages = await weixinPending(true);
+  if (messages.length === 0) return null;
+  return applyWeixinDraft(sessionId, inputActions, currentDraft, messages);
+}
+
+/**
+ * Show a "message waiting" notice without touching the draft.
+ * @param {unknown} sessionId
+ * @param {any[]} messages
+ * @returns {void}
+ */
+function noteWeixinQueue(sessionId, messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return;
+  const last = messages[messages.length - 1] || {};
+  store.setSessionState(sessionId, {
+    weixinNotice: {
+      count: messages.length,
+      from: last && typeof last.from === 'string' ? last.from : '',
+      at: Date.now(),
+      filled: false,
+    },
+  });
+}
+
+/**
+ * @param {unknown} sessionId
+ * @returns {void}
+ */
+function dismissWeixinNotice(sessionId) {
+  store.setSessionState(sessionId, { weixinNotice: null, weixinBefore: '' });
+}
+
+/**
+ * Restore the draft captured before the WeChat text was filled in.
+ * @param {unknown} sessionId
+ * @param {any} inputActions
+ * @returns {void}
+ */
+function undoWeixinDraft(sessionId, inputActions) {
+  const state = store.getSessionState(sessionId);
+  if (!state.weixinNotice) return;
+  writeDraft(inputActions, state.weixinBefore || '');
+  store.setSessionState(sessionId, { weixinNotice: null, weixinBefore: '' });
+}
+
 module.exports = {
   setContext,
   modelHintFor,
@@ -655,4 +813,17 @@ module.exports = {
   openPanel,
   writeDraft,
   describeError,
+  weixinStatus,
+  weixinStartLogin,
+  weixinSubmitVerify,
+  weixinLogout,
+  weixinPending,
+  weixinClear,
+  weixinDraftText,
+  composeWeixinDraft,
+  applyWeixinDraft,
+  consumeWeixin,
+  noteWeixinQueue,
+  dismissWeixinNotice,
+  undoWeixinDraft,
 };

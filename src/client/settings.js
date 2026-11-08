@@ -17,6 +17,7 @@ const React = require('react');
 const actions = require('./actions.js');
 const store = require('./store.js');
 const { createTranslator } = require('./i18n.js');
+const { WeixinTab } = require('./weixin.js');
 const { MODES, SCENARIOS } = require('../protocol.cjs');
 const icons = require('./icons.js');
 
@@ -59,6 +60,7 @@ function SettingsSection(props) {
   const saved = store.useSettings();
   const [draft, setDraft] = React.useState(saved);
   const [justSaved, setJustSaved] = React.useState(false);
+  const [tab, setTab] = React.useState('behavior');
   const [, bumpRevision] = React.useState(0);
   const t = createTranslator(actions.currentLocale());
 
@@ -249,6 +251,32 @@ function SettingsSection(props) {
     );
   };
 
+  const tabs = h(
+    'div',
+    { className: 'dpc-tabs', role: 'tablist', 'aria-label': t('settings.title') },
+    [
+      ['behavior', 'settings.tab.behavior'],
+      ['weixin', 'settings.tab.weixin'],
+    ].map(function tabButton(entry) {
+      const active = tab === entry[0];
+      return h(
+        'button',
+        {
+          key: entry[0],
+          type: 'button',
+          role: 'tab',
+          className: 'dpc-tab',
+          'aria-selected': active ? 'true' : 'false',
+          'data-selected': active ? 'true' : 'false',
+          onClick: function onClickTab() {
+            setTab(entry[0]);
+          },
+        },
+        t(entry[1]),
+      );
+    }),
+  );
+
   return h(
     'div',
     { className: 'dpc-settings' },
@@ -263,7 +291,10 @@ function SettingsSection(props) {
         h('p', { className: 'dpc-hero-desc' }, t('settings.desc')),
       ),
     ),
-    h(
+    tabs,
+    tab === 'weixin'
+      ? h(WeixinTab, { t: t })
+      : h(
       'section',
       { className: 'dpc-card', 'aria-label': t('settings.title') },
       h('div', { className: 'dpc-section-head' }, t('settings.section.defaults')),

@@ -34,7 +34,11 @@
 
 ![深色主题下的设置页](docs/screenshots/settings-dark.png)
 
-截图来自 v0.3.0 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
+设置页的「微信 Bot」页签：扫码把微信 Bot 连到本机，连上之后，微信里发给它的消息会出现在 DSH 输入框的草稿里（只填入、不发送）：
+
+![微信 Bot 页签：扫码连接](docs/screenshots/weixin-login.png)
+
+截图来自 v0.4.0 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
 
 ## 为什么是「以目标为导向」
 
@@ -92,6 +96,7 @@
 - 🔁 **迭代改稿**：在上一版基础上继续给修改意见。
 - ⚙️ **设置页**：单张卡片，每行一组文案 + 选项；标题与文案跟随 DSH 界面语言（中文下就是「提示词增强」）。
 - 🧠 **模型从本机同步**：设置里直接点选本机已连接的模型（按 provider 分组），默认仍跟随当前会话，不要求你记 provider / model。
+- 💬 **微信 Bot 收件箱**：设置页「微信 Bot」页签扫码连接（借用腾讯 iLink 协议，零额外运行时），微信里发给 Bot 的消息会进本地队列并自动填入输入框草稿；只填入、不发送、不回复。
 - 🔘 **草稿态提示**：输入框有内容时 ✨ 带一层浅灰底，一眼看出「可以点了」。
 - 🌏 **中英双语**：跟随浏览器语言，可在设置里覆盖。
 
@@ -124,7 +129,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.3.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.0
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -152,6 +157,8 @@ dsh plugin --profile desktop remove dsh-prompt-craft
    - 想改得更狠或更轻，点「继续改…」输入一句意见。
 4. 应用后可直接编辑或发送；「撤销」回到增强前的原文。
 
+想从微信进来：设置 → 「提示词增强」→「微信 Bot」页签，扫码连接一次。之后在微信里给这个 Bot 发消息，内容会自动出现在输入框草稿里（可在设置里关掉「收到消息自动填入」，改成先提示、再点「填入」）。
+
 ## 设置
 
 设置页位于 DSH 设置的插件页（「提示词增强」一节）。整个设置是一张卡片，行内左边是说明、右边是控件：
@@ -165,10 +172,22 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 模型从哪来：插件从你当前会话的模型目录里同步 provider 与模型（打开过一次对话即可），设置页会显示「已从本机同步 N 个可用模型」；同步不到时保留手动填写作为兜底，并提供「重新同步」。模型策略默认完全跟随当前会话（含会话里临时切换的模型），只有你显式指定时才覆盖。设置保存在本机浏览器 `localStorage`，不上传。
 
+## 微信 Bot 连接
+
+设置页有「增强设置 / 微信 Bot」两个页签。在「微信 Bot」里点「连接微信 Bot」，用手机微信扫码确认后即可：
+
+- 微信里给这个 Bot 发**文本**消息 → 消息进入本机队列 → DSH 输入框草稿里出现内容（默认自动填入，可在同一页关掉）；
+- **只填入，不发送，不回复微信**：内容进的是草稿，发不发、怎么改，都由你决定；
+- 连接凭据只保存在本机 `~/.dsh/prompt-craft/weixin.json`（文件权限 0600），不上传、不写日志；
+- 「撤销填入」把草稿恢复成填入前的样子；关掉自动填入时，输入框上方会出现提示条，点「填入」才写进草稿。
+
+实现上是**只借用腾讯的 iLink 协议**：插件自己实现扫码登录与长轮询（`getupdates`），不依赖 OpenClaw 或任何常驻进程。已知限制：iLink 会话约 **24 小时**到期，需要在设置页重新扫码；仅支持文本消息；这是个人微信账号的 Bot 通道，请按腾讯的服务条款谨慎使用。
+
 ## 兼容性与实现
 
 - 宿主半（`lib/host/index.cjs`）注册一个 `POST /dsh-prompt-craft/rpc` 路由，用 `ctx.llm.stream()` 调模型；带来源校验（拒绝跨站请求）、1 MiB 请求体上限、120s 超时、JSON 输出解析与一次修复重试。
-- 浏览器半（`lib/client.js`）通过 DSH 的 `slots` 服务注册三个插槽：`conversation.input.right`（按钮）、`conversation.input.dock`（面板）、`settings.section`（设置页）。不修改 DOM、不 patch 宿主代码。
+- 浏览器半（`lib/client.js`）通过 DSH 的 `slots` 服务注册四个插槽：`conversation.input.right`（按钮）、`conversation.input.dock`（面板 + 微信收件箱提示条）、`settings.section`（设置页）。不修改 DOM、不 patch 宿主代码。
+- 微信 Bot 的宿主半（`lib/host/weixin.cjs`）实现 iLink 扫码登录状态机与 `getupdates` 长轮询，消息落本地队列，客户端按会话轮询 `weixin/pending` 后写入草稿；QR 码在浏览器里用打包进 bundle 的 `qrcode-generator` 渲染，运行时零依赖。
 - 只依赖 DSH 已提供的共享模块（`react` 等），不额外安装运行时依赖。
 
 ## 开发
@@ -176,7 +195,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，97 个用例
+npm test           # node --test，105 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 
@@ -195,7 +214,7 @@ src/client/{button,panel,actions,store,rpc,i18n,styles,settings,diff}.js
 
 ## 隐私
 
-- 插件不发送任何遥测，不访问网络（除 DSH 宿主自身的本机路由）。
+- 插件不发送任何遥测；除 DSH 宿主自身的本机路由外，只有在你连接微信 Bot 后才与腾讯 iLink 服务器通信（扫码登录与长轮询收消息）。
 - 草稿只在你点击 ✨ 时经本机 DSH 宿主转发给你在 DSH 里配置的模型服务。
 - 设置存在浏览器 `localStorage`，不写入磁盘其他位置。
 

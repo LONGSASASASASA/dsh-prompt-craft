@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.3.0",
-  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a quiet glass UI: rewrite drafts around the outcome they serve, review a line diff with per-section accept, answer clarifying questions and refine in place.",
+  "version": "0.4.0",
+  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a quiet glass UI, plus a WeChat bot bridge that queues your messages into the composer.",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {
@@ -68,6 +68,7 @@
     "url": "https://github.com/LONGSASASASASA/dsh-prompt-craft/issues"
   },
   "devDependencies": {
-    "esbuild": "^0.24.2"
+    "esbuild": "^0.24.2",
+    "qrcode-generator": "^1.4.4"
   }
 }

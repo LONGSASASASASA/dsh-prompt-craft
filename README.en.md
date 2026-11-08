@@ -34,7 +34,11 @@ The dark theme uses the other token set — the glass panel, gradient outline, g
 
 ![The settings page in the dark theme](docs/screenshots/settings-dark.png)
 
-Screenshots are from a real v0.3.0 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
+The settings page also has a **WeChat Bot** tab: scan the QR code once to connect a WeChat bot to this machine. Messages you send to that bot then appear in the DSH composer draft (fill only, never sent):
+
+![WeChat Bot tab: scan to connect](docs/screenshots/weixin-login.png)
+
+Screenshots are from a real v0.4.0 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
 
 ## Why "goal first"
 
@@ -92,6 +96,7 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🔁 **Refine loop** — give the last rewrite another instruction.
 - ⚙️ **One settings card** — every option sits in a single card, one row per setting with its explanation on the left and the control on the right; the title and copy follow the DSH UI language ("提示词增强" in Chinese).
 - 🧠 **Models synced from this machine** — pick a model from the providers already connected here, grouped by provider; the default still follows the current session, so you never need to know a provider / model pair.
+- 💬 **WeChat bot inbox** — connect from Settings → WeChat Bot by scanning a QR code (the plugin speaks Tencent iLink directly, no extra runtime); messages you send to the bot land in a local queue and are filled into the composer draft. Fill only: nothing is sent and nothing is replied to WeChat.
 - 🔘 **Draft-state hint** — once the composer has text, ✨ gets a soft grey background so it is obvious the button is ready.
 - 🌏 **Chinese and English UI** — follows the browser language, overridable in settings.
 
@@ -124,7 +129,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.3.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.0
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -151,6 +156,8 @@ dsh plugin --profile desktop remove dsh-prompt-craft
    - click "Refine…" and type an instruction to iterate.
 4. After applying, edit or send as usual; "Undo" restores the pre-enhancement draft.
 
+Incoming from WeChat: open Settings → "Prompt enhancement" → the **WeChat Bot** tab and scan the QR code once. After that, a message you send to the bot shows up in the composer draft (turn off "Fill incoming messages automatically" if you would rather get a notice first and click "Fill").
+
 ## Settings
 
 The settings page lives in DSH's plugin settings ("Prompt enhancement" section). The whole page is one card, each row with its explanation on the left and the control on the right:
@@ -164,10 +171,22 @@ The settings page lives in DSH's plugin settings ("Prompt enhancement" section).
 
 Where the models come from: the plugin syncs providers and models from the current session's model directory (open any conversation once and the list appears); the page shows "Synced N available models from this machine". When nothing can be synced it keeps manual entry as a fallback plus a "Sync again" button. By default the plugin uses exactly the model the current session is using (including temporary switches in the composer); it only overrides when you pin one. Settings are stored in the browser's `localStorage` and never uploaded.
 
+## WeChat Bot
+
+The settings page has two tabs: **Enhancement** and **WeChat Bot**. In the WeChat Bot tab, click "Connect WeChat bot" and confirm the login with your phone:
+
+- a text message you send to that bot enters a local queue and shows up in the DSH composer draft (automatic fill is on by default; turn it off to get a notice first and click "Fill");
+- it only fills the draft — nothing is sent from DSH and nothing is replied to WeChat;
+- the connection token is stored only on this machine at `~/.dsh/prompt-craft/weixin.json` with mode 0600;
+- "Undo" restores the draft from before the fill; with automatic fill off, a notice above the composer offers "Fill" and "Ignore".
+
+Under the hood the plugin speaks Tencent's iLink protocol directly (QR login plus a long-polling `getupdates` loop), so there is no OpenClaw or other background service involved. Known limits: the iLink session expires after roughly **24 hours** and needs a re-scan; text messages only; this is a personal-account bot channel, so use it within Tencent's terms.
+
 ## Compatibility and design notes
 
 - The host half (`lib/host/index.cjs`) registers one `POST /dsh-prompt-craft/rpc` route and calls the model through `ctx.llm.stream()`. It rejects cross-site requests, caps bodies at 1 MiB, times out after 120 s, and parses (with one repair retry) the model's JSON output.
-- The browser half (`lib/client.js`) registers three DSH slots: `conversation.input.right` (button), `conversation.input.dock` (panel) and `settings.section` (settings page). No DOM patching, no host-code patching.
+- The browser half (`lib/client.js`) registers four DSH slots: `conversation.input.right` (button), `conversation.input.dock` (panel and the WeChat inbox notice) and `settings.section` (settings page). No DOM patching, no host-code patching.
+- The WeChat host half (`lib/host/weixin.cjs`) implements the iLink QR-login state machine and the `getupdates` long poll; messages land in a local queue, and each mounted composer polls `weixin/pending` and fills the draft. The QR code is rendered in the browser by `qrcode-generator` bundled into the client, so no runtime dependency is added.
 - It only uses modules DSH already shares (`react`, …); no runtime dependency is installed into your profile.
 
 ## Development
@@ -175,7 +194,7 @@ Where the models come from: the plugin syncs providers and models from the curre
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 97 cases
+npm test           # node --test, 105 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 
@@ -194,7 +213,7 @@ src/client/{button,panel,actions,store,rpc,i18n,styles,settings,diff}.js
 
 ## Privacy
 
-- No telemetry and no outbound network calls of its own (only the DSH host's local route).
+- No telemetry. Apart from the DSH host's local route, the plugin talks to Tencent iLink only after you connect the WeChat bot (QR login and the long poll that receives messages).
 - The draft is forwarded to the model service you configured in DSH, and only when you click ✨.
 - Settings live in `localStorage`; nothing else is written to disk.
 

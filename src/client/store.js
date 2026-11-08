@@ -13,7 +13,7 @@ const { MODES, SCENARIOS } = require('../protocol.cjs');
 const SETTINGS_KEY = 'dsh-prompt-craft/settings/v1';
 const MAX_TEXT_FIELD = 200;
 
-/** @type {{mode: string, scenario: string, locale: string, provider: string, model: string, reasoningEffort: string}} */
+/** @type {{mode: string, scenario: string, locale: string, provider: string, model: string, reasoningEffort: string, weixinAutoFill: boolean}} */
 const DEFAULT_SETTINGS = {
   mode: 'standard',
   scenario: 'auto',
@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = {
   provider: '',
   model: '',
   reasoningEffort: '',
+  weixinAutoFill: true,
 };
 
 function getStorage() {
@@ -61,6 +62,7 @@ function sanitizeSettings(candidate) {
     provider: readText(source.provider, '', MAX_TEXT_FIELD),
     model: readText(source.model, '', MAX_TEXT_FIELD),
     reasoningEffort: readText(source.reasoningEffort, '', 40),
+    weixinAutoFill: source.weixinAutoFill === false ? false : true,
   };
 }
 
@@ -142,6 +144,8 @@ const SESSION_DEFAULTS = Object.freeze({
   meta: null,
   applied: false,
   appliedText: '',
+  weixinNotice: null,
+  weixinBefore: '',
   runId: 0,
 });
 

@@ -10,6 +10,7 @@ const actions = require('./actions.js');
 const store = require('./store.js');
 const { createTranslator } = require('./i18n.js');
 const icons = require('./icons.js');
+const { startComposerPoller } = require('./weixin.js');
 
 const h = React.createElement;
 
@@ -30,6 +31,26 @@ function EnhanceButton(props) {
   const draft = input && typeof input.draft === 'string' ? input.draft : '';
   const busy = state.status === 'running';
   const canEnhance = draft.trim().length > 0;
+
+  const draftRef = React.useRef(draft);
+  draftRef.current = draft;
+  const inputActionsRef = React.useRef(props.inputActions || null);
+  inputActionsRef.current = props.inputActions || null;
+
+  // WeChat messages are consumed by whichever composer is mounted: the host
+  // queues them, this poller fills the visible draft.
+  React.useEffect(function startWeixinPoller() {
+    if (!sessionId) return undefined;
+    return startComposerPoller(
+      sessionId,
+      function getActions() {
+        return inputActionsRef.current;
+      },
+      function getDraft() {
+        return draftRef.current;
+      },
+    );
+  }, [sessionId]);
 
   const onClick = function onClick() {
     if (busy) {

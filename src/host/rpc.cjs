@@ -18,6 +18,7 @@ const {
   validateEnhance,
   validateRefine,
   tokenBudgetFor,
+  isPlainObject,
 } = require('../protocol.cjs');
 const { buildEnhancePrompt, buildRefinePrompt, buildRepairMessages } = require('./templates.cjs');
 const { parseModelOutput } = require('./parse-output.cjs');
@@ -254,7 +255,7 @@ async function generateResult(llm, prompt, model, timeoutMs) {
 
 /**
  * Build the RPC request handler.
- * @param {{ getLlm: () => any, resolveModelFn: (model: any, sessionId: string) => any, timeoutMs?: number, version?: string }} deps
+ * @param {{ getLlm: () => any, resolveModelFn: (model: any, sessionId: string) => any, weixin?: any, timeoutMs?: number, version?: string }} deps
  * @returns {(req: any, res: any) => Promise<void>}
  */
 function createHandler(deps) {
@@ -295,6 +296,55 @@ function createHandler(deps) {
       const method = body && typeof body === 'object' ? body.method : undefined;
       if (method === METHODS.PING) {
         sendJson(res, 200, { ok: true, result: { plugin: PLUGIN_ID, version } });
+        return;
+      }
+      if (
+        method === METHODS.WEIXIN_STATUS ||
+        method === METHODS.WEIXIN_LOGIN ||
+        method === METHODS.WEIXIN_VERIFY ||
+        method === METHODS.WEIXIN_LOGOUT ||
+        method === METHODS.WEIXIN_PENDING ||
+        method === METHODS.WEIXIN_CLEAR
+      ) {
+        const weixin = deps.weixin;
+        if (!weixin) {
+          sendJson(res, 500, {
+            ok: false,
+            error: makeError(ERROR_CODES.INTERNAL, 'the weixin bridge is unavailable'),
+          });
+          return;
+        }
+        try {
+          if (method === METHODS.WEIXIN_STATUS) {
+            sendJson(res, 200, { ok: true, result: weixin.status() });
+            return;
+          }
+          if (method === METHODS.WEIXIN_LOGIN) {
+            sendJson(res, 200, { ok: true, result: await weixin.startLogin() });
+            return;
+          }
+          if (method === METHODS.WEIXIN_VERIFY) {
+            const code = isPlainObject(body) ? body.code : undefined;
+            sendJson(res, 200, { ok: true, result: weixin.submitVerifyCode(code) });
+            return;
+          }
+          if (method === METHODS.WEIXIN_LOGOUT) {
+            sendJson(res, 200, { ok: true, result: weixin.logout() });
+            return;
+          }
+          if (method === METHODS.WEIXIN_CLEAR) {
+            sendJson(res, 200, { ok: true, result: { cleared: weixin.clearPending() } });
+            return;
+          }
+          const consume = isPlainObject(body) ? body.consume !== false : true;
+          const messages = consume ? weixin.takePending() : weixin.peekPending();
+          sendJson(res, 200, { ok: true, result: { messages } });
+        } catch (error) {
+          sendJson(res, 500, {
+            ok: false,
+            error: makeError(ERROR_CODES.INTERNAL, error && error.message ? String(error.message) : 'weixin bridge error'),
+          });
+        }
         return;
       }
 
@@ -390,7 +440,7 @@ function createHandler(deps) {
  * @param {any} ctx cordis context (webServer and llm already injected)
  * @returns {() => void} disposer
  */
-function registerRpc(ctx) {
+function registerRpc(ctx, options) {
   if (!ctx || !ctx.webServer || typeof ctx.webServer.register !== 'function') {
     throw new Error('dsh-prompt-craft: the web server service is unavailable');
   }
@@ -401,6 +451,7 @@ function registerRpc(ctx) {
       return llm;
     },
     resolveModelFn: (model, sessionId) => resolveModel(ctx, model, sessionId),
+    weixin: options && options.weixin,
   });
   return ctx.webServer.register({ kind: 'exact', path: RPC_PATH, handler });
 }

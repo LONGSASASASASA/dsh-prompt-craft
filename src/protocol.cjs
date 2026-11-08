@@ -12,13 +12,25 @@ const PLUGIN_ID = 'dsh-prompt-craft';
 /** Host HTTP route serving the plugin RPC. */
 const RPC_PATH = '/dsh-prompt-craft/rpc';
 /** Wire version of the plugin's own protocol. */
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 /** RPC method names. */
 const METHODS = Object.freeze({
   ENHANCE: 'enhance',
   REFINE: 'refine',
   PING: 'ping',
+  /** WeChat (iLink) bridge: read connection state. */
+  WEIXIN_STATUS: 'weixin/status',
+  /** WeChat (iLink) bridge: start a QR login. */
+  WEIXIN_LOGIN: 'weixin/login',
+  /** WeChat (iLink) bridge: submit the numeric pairing code shown in WeChat. */
+  WEIXIN_VERIFY: 'weixin/verify',
+  /** WeChat (iLink) bridge: drop the session and stored credentials. */
+  WEIXIN_LOGOUT: 'weixin/logout',
+  /** WeChat (iLink) bridge: consume messages waiting for a composer. */
+  WEIXIN_PENDING: 'weixin/pending',
+  /** WeChat (iLink) bridge: drop the pending queue without filling anything. */
+  WEIXIN_CLEAR: 'weixin/clear',
 });
 
 /** Strength modes, weakest first. */
@@ -36,6 +48,10 @@ const LIMITS = Object.freeze({
   MAX_MODEL_CHARS: 200,
   MAX_PROMPT_CHARS: 30000,
   MAX_QUESTIONS: 2,
+  /** WeChat bridge: messages kept while nobody is looking at a composer. */
+  MAX_WEIXIN_QUEUE: 20,
+  /** WeChat bridge: one inbound text is clipped to this many characters. */
+  MAX_WEIXIN_TEXT_CHARS: 8000,
 });
 
 /** Token budget for the enhancement call. */

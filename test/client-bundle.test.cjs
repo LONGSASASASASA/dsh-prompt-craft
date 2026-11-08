@@ -30,6 +30,12 @@ function createFakeReact() {
     useEffect() {
       /* effects do not run in this sandbox */
     },
+    useLayoutEffect() {
+      /* effects do not run in this sandbox */
+    },
+    useRef(initial) {
+      return { current: initial === undefined ? null : initial };
+    },
     useCallback(fn) {
       return fn;
     },
@@ -296,15 +302,23 @@ test('the bundle registers the plugin under the package id', () => {
   assert.equal(typeof plugin.apply, 'function');
 });
 
-test('apply registers the button, the panel and the settings section', () => {
+test('apply registers the button, the panel, the WeChat notice and the settings section', () => {
   const { slots, loaded } = boot();
-  assert.deepEqual(slots.injected, ['conversation.input.right', 'conversation.input.dock', 'settings.section']);
+  assert.deepEqual(slots.injected, [
+    'conversation.input.right',
+    'conversation.input.dock',
+    'conversation.input.dock',
+    'settings.section',
+  ]);
   const button = slots.registered[0];
   assert.equal(button.options.id, 'prompt-craft');
   assert.equal(button.options.order, 10);
   const panel = slots.registered[1];
   assert.equal(panel.options.id, 'prompt-craft-panel');
-  const section = slots.registered[2];
+  const notice = slots.registered[2];
+  assert.equal(notice.options.id, 'prompt-craft-weixin');
+  assert.equal(notice.options.order, 12);
+  const section = slots.registered[3];
   assert.equal(section.options.id, 'prompt-craft');
   assert.equal(section.options.order, 40);
   assert.equal(typeof section.options.label, 'function');
@@ -484,6 +498,8 @@ test('the settings section renders one card with the local model list', () => {
 
   const section = SettingsSection({});
   assert.equal(section.props.className, 'dpc-settings');
+  assert.match(textOf(section), /增强设置/);
+  assert.match(textOf(section), /微信 Bot/);
   const card = findNode(section, (node) => node.props && node.props.className === 'dpc-card');
   assert.ok(card, 'all settings must live in one card');
   assert.match(textOf(section), /提示词增强/);
