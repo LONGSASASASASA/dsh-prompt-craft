@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.4.0",
-  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a quiet glass UI, plus a WeChat bot bridge that queues your messages into the composer.",
+  "version": "0.4.1",
+  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a WeChat (iLink) inbox: QR login, inbound text lands in the composer draft.",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {

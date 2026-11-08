@@ -43,7 +43,12 @@ function scriptedFetch(router) {
   return {
     calls,
     fetchImpl: async function fetchImpl(url, init) {
-      calls.push({ url: String(url), headers: (init && init.headers) || {} });
+      calls.push({
+        url: String(url),
+        headers: (init && init.headers) || {},
+        method: (init && init.method) || 'GET',
+        body: init && typeof init.body === 'string' ? init.body : '',
+      });
       const response = router(String(url), calls.length);
       if (response instanceof Error) throw response;
       return response || jsonResponse({});
@@ -85,6 +90,7 @@ test('extractText reads only text items and sanitizes control characters', () =>
   assert.equal(extractText({ item_list: [{ type: 1, text_item: { text: ' hello ' } }] }), ' hello ');
   assert.equal(sanitizeInbound(extractText({ item_list: [{ type: 1, text_item: { text: ' hello ' } }] })), 'hello');
   assert.equal(extractText({ item_list: [{ type: 2, image_item: {} }] }), '');
+  assert.equal(extractText({ item_list: [{ type: 3, voice_item: { text: '语音转写' } }] }), '语音转写');
   assert.equal(extractText({ item_list: [] }), '');
   assert.equal(extractText(null), '');
   const sanitized = sanitizeInbound(' a\u0000b\u0007c \n ');
@@ -287,6 +293,57 @@ test('logout clears credentials, queue and state', async () => {
     assert.equal(status.queueSize, 0);
     assert.equal(status.account, null);
     assert.equal(fs.existsSync(storePath), false);
+  } finally {
+    bridge.stop();
+  }
+});
+
+test('getupdates is a POST with the cursor and base_info in the JSON body', async () => {
+  const storePath = createStorePath();
+  writeAccount(storePath);
+  const { calls, fetchImpl } = scriptedFetch(function router(url) {
+    if (url.includes('getupdates')) {
+      return jsonResponse({
+        ret: 0,
+        msgs: [{ message_id: 'm1', from_user_id: 'user-1', item_list: [{ type: 1, text_item: { text: 'hi' } }] }],
+        get_updates_buf: 'cursor-2',
+      });
+    }
+    return jsonResponse({ ret: 0 });
+  });
+  const bridge = new WeixinBridge({ storePath: storePath, fetchImpl: fetchImpl, log: function noop() {} });
+  try {
+    await waitFor(function queued() {
+      return bridge.peekPending().length === 1;
+    }, 'message to be queued');
+    const poll = calls.find(function isPoll(call) {
+      return call.url.includes('getupdates');
+    });
+    assert.ok(poll, 'getupdates was called');
+    assert.equal(poll.method, 'POST');
+    const body = JSON.parse(poll.body);
+    assert.equal(body.get_updates_buf, '');
+    assert.equal(body.base_info.channel_version, '0.4.0');
+    assert.equal(body.base_info.bot_agent, 'dsh-prompt-craft/0.4.0');
+  } finally {
+    bridge.stop();
+  }
+});
+
+test('a non-zero getupdates ret is surfaced instead of being treated as an empty poll', async () => {
+  const storePath = createStorePath();
+  writeAccount(storePath);
+  const { fetchImpl } = scriptedFetch(function router(url) {
+    if (url.includes('getupdates')) return jsonResponse({ ret: -1 });
+    return jsonResponse({ ret: 0 });
+  });
+  const bridge = new WeixinBridge({ storePath: storePath, fetchImpl: fetchImpl, log: function noop() {} });
+  try {
+    await waitFor(function recorded() {
+      return bridge.status().lastError === 'getupdates ret -1';
+    }, 'ret -1 to be recorded');
+    assert.equal(bridge.status().state, 'connected');
+    assert.equal(bridge.peekPending().length, 0);
   } finally {
     bridge.stop();
   }
