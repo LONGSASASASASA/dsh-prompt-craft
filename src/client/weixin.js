@@ -14,6 +14,7 @@ const qrcode = require('qrcode-generator');
 const { translate, normalizeLocale } = require('./i18n.js');
 const store = require('./store.js');
 const actions = require('./actions.js');
+const { useComposerAlign } = require('./align.js');
 
 const h = React.createElement;
 const useState = React.useState;
@@ -428,6 +429,8 @@ function WeixinNotice(props) {
   const snapshot = typeof props.useInput === 'function' ? props.useInput((value) => value) : null;
   const draft = snapshot && typeof snapshot.draft === 'string' ? snapshot.draft : '';
   const state = store.useSessionState(sessionId);
+  const noticeRef = useRef(null);
+  useComposerAlign(noticeRef, [state.weixinNotice]);
   const notice = state.weixinNotice;
   if (!notice) return null;
   const locale = props.locale ? normalizeLocale(props.locale) : actions.currentLocale();
@@ -499,7 +502,7 @@ function WeixinNotice(props) {
 
   return h(
     'div',
-    { className: 'dpc-notice', role: 'status' },
+    { className: 'dpc-notice', role: 'status', ref: noticeRef },
     h(
       'div',
       { className: 'dpc-notice-text' },

@@ -14,57 +14,7 @@ const { MODES, SCENARIOS } = require('../protocol.cjs');
 const icons = require('./icons.js');
 
 const h = React.createElement;
-const useLayoutEffect = React.useLayoutEffect || React.useEffect || function useLayoutEffectFallback() {};
-const useRef = React.useRef || function useRefFallback(initial) {
-  return { current: initial === undefined ? null : initial };
-};
-
-/**
- * The nearest ancestor of the panel that actually occupies space: the dock slot
- * renders the panel through a `display: contents` wrapper, whose own rect is
- * empty, so walk up to the composer box that holds both the panel and the input
- * card.
- * @param {any} panel
- * @returns {any} the anchor element or null
- */
-function panelAnchor(panel) {
-  if (!panel) return null;
-  let anchor = panel.parentElement;
-  while (anchor && anchor.parentElement && anchor.getBoundingClientRect().width <= 0) {
-    anchor = anchor.parentElement;
-  }
-  return anchor;
-}
-
-/**
- * Keep the panel's left and right edges on the composer card's edges. The card
- * is the nearest rounded ancestor of the composer editor; the panel is docked
- * in the same box, so the card insets decide the panel width in every layout
- * (sidebars open or closed, any window width) instead of a guessed padding.
- * @param {any} panel
- */
-function alignToComposer(panel) {
-  const anchor = panelAnchor(panel);
-  if (!panel || !anchor) return;
-  const parentRect = anchor.getBoundingClientRect();
-  let card = typeof anchor.querySelector === 'function' ? anchor.querySelector('[data-composer-input]') : null;
-  while (card && card !== anchor) {
-    const radius = parseFloat(getComputedStyle(card).borderTopLeftRadius) || 0;
-    if (radius >= 16) break;
-    card = card.parentElement;
-  }
-  if (!card || card === anchor || typeof card.getBoundingClientRect !== 'function') {
-    panel.style.marginLeft = '16px';
-    panel.style.marginRight = '16px';
-    return;
-  }
-  const cardRect = card.getBoundingClientRect();
-  if (!(cardRect.width > 0)) return;
-  const left = Math.max(0, Math.round(cardRect.left - parentRect.left));
-  const right = Math.max(0, Math.round(parentRect.right - cardRect.right));
-  panel.style.marginLeft = left + 'px';
-  panel.style.marginRight = right + 'px';
-}
+const { useComposerAlign, useRef } = require('./align.js');
 
 /**
  * @param {any} meta response meta from the host
@@ -138,29 +88,7 @@ function EnhancePanel(props) {
   void input;
   const panelRef = useRef(null);
 
-  useLayoutEffect(function syncPanelWidth() {
-    const panel = panelRef.current;
-    if (!panel) return undefined;
-    alignToComposer(panel);
-    const relayout = function relayout() {
-      alignToComposer(panelRef.current);
-    };
-    let observer = null;
-    const anchor = panelAnchor(panel);
-    if (typeof ResizeObserver === 'function' && anchor) {
-      observer = new ResizeObserver(relayout);
-      observer.observe(anchor);
-    }
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('resize', relayout);
-    }
-    return function cleanup() {
-      if (observer) observer.disconnect();
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('resize', relayout);
-      }
-    };
-  }, [state.open, sessionId]);
+  useComposerAlign(panelRef, [state.open, sessionId]);
 
   if (!state.open) return null;
 
