@@ -12,7 +12,7 @@ The ✨ button in the composer tool row (just left of the model picker), lit up 
 
 ![The ✨ button in the composer](docs/screenshots/composer-typed.png)
 
-Click it and the panel opens above the composer, sharing the composer's left and right edges — a light blue gradient outline, the goal the rewrite serves and how the aim was raised at the top, and **Compare** as the default view:
+Click it and the panel opens above the composer, sharing the composer's left and right edges — a glass card with a light blue gradient outline, the goal the rewrite serves and how the aim was raised at the top, and **Compare** as the default view:
 
 ![Result panel: goal, elevation and per-hunk accept](docs/screenshots/panel-result.png)
 
@@ -24,11 +24,17 @@ What lands in the composer is the tighter version — the same requirements in f
 
 ![The composer after applying](docs/screenshots/composer-applied.png)
 
-The settings page speaks the same language: one large card, each row has the explanation on the left and the control on the right; "Model for enhancement" is picked straight from the models already connected on this machine, so you never have to remember a provider / model pair:
+The settings page speaks the same language: a hero band plus one large card, each row has the explanation on the left and the control on the right; "Model for enhancement" is picked straight from the models already connected on this machine, so you never have to remember a provider / model pair:
 
 ![Settings: Chinese title, a single card, models synced from this machine](docs/screenshots/settings.png)
 
-Screenshots are from a real v0.2.4 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
+The dark theme uses the other token set — the glass panel, gradient outline, goal card and grouped cards all hold up:
+
+![The result panel in the dark theme](docs/screenshots/panel-result-dark.png)
+
+![The settings page in the dark theme](docs/screenshots/settings-dark.png)
+
+Screenshots are from a real v0.3.0 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
 
 ## Why "goal first"
 
@@ -81,6 +87,7 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a compare view (default) or sections view, apply-all, and undo.
 - ✂️ **Terse output** — compress the character count without dropping a requirement; Chinese may use a compact classical register (须 / 勿 / 免 / four-character phrases) but readability comes first, and a one-line draft gets a hard length cap.
 - 🪟 **Same width as the composer** — the panel shares the composer's left and right edges, with a light blue gradient outline that stays clear in light and dark themes.
+- 🎨 **Glass UI** — a translucent panel, a 1px gradient outline and inline SVG icons (no emoji), plus a settings page with a hero band, grouped cards and model tiles; everything rides on DSH's light/dark tokens and respects `prefers-reduced-motion`.
 - ❓ **Clarifying questions** — answer 1–2 questions and the draft is rewritten with those answers folded in.
 - 🔁 **Refine loop** — give the last rewrite another instruction.
 - ⚙️ **One settings card** — every option sits in a single card, one row per setting with its explanation on the left and the control on the right; the title and copy follow the DSH UI language ("提示词增强" in Chinese).
@@ -117,7 +124,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.4
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.3.0
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft

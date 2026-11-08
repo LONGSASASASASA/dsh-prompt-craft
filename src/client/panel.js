@@ -11,6 +11,7 @@ const actions = require('./actions.js');
 const store = require('./store.js');
 const { createTranslator } = require('./i18n.js');
 const { MODES, SCENARIOS } = require('../protocol.cjs');
+const icons = require('./icons.js');
 
 const h = React.createElement;
 const useLayoutEffect = React.useLayoutEffect || React.useEffect || function useLayoutEffectFallback() {};
@@ -18,13 +19,6 @@ const useRef = React.useRef || function useRefFallback(initial) {
   return { current: initial === undefined ? null : initial };
 };
 
-/**
- * Keep the panel's left and right edges on the composer card's edges. The card
- * is the nearest rounded ancestor of the composer editor; the panel is docked
- * in the same stack, so the card insets decide the panel width in every layout
- * (sidebars open or closed, any window width) instead of a guessed padding.
- * @param {any} panel
- */
 /**
  * The nearest ancestor of the panel that actually occupies space: the dock slot
  * renders the panel through a `display: contents` wrapper, whose own rect is
@@ -238,6 +232,7 @@ function EnhancePanel(props) {
   const header = h(
     'div',
     { className: 'dpc-head' },
+    h('span', { className: 'dpc-mark' }, h(icons.Sparkle, { size: 16, strokeWidth: 1.8 })),
     h(
       'div',
       { className: 'dpc-head-main' },
@@ -262,7 +257,7 @@ function EnhancePanel(props) {
               'aria-label': t('panel.close'),
               onClick: onClose,
             },
-            '×',
+            h(icons.Close, { size: 15 }),
           ),
     ),
   );
@@ -271,25 +266,33 @@ function EnhancePanel(props) {
     ? null
     : h(
         'div',
-        { className: 'dpc-row' },
-        h('span', { className: 'dpc-row-label' }, t('mode.label')),
-        h(Chips, {
-          name: t('mode.label'),
-          value: mode,
-          options: MODES.map(function renderMode(value) {
-            return [value, t('mode.' + value)];
+        { className: 'dpc-controls' },
+        h(
+          'div',
+          { className: 'dpc-control' },
+          h('span', { className: 'dpc-row-label' }, t('mode.label')),
+          h(Chips, {
+            name: t('mode.label'),
+            value: mode,
+            options: MODES.map(function renderMode(value) {
+              return [value, t('mode.' + value)];
+            }),
+            onChange: onModeChange,
           }),
-          onChange: onModeChange,
-        }),
-        h('span', { className: 'dpc-row-label' }, t('scenario.label')),
-        h(Chips, {
-          name: t('scenario.label'),
-          value: scenario,
-          options: SCENARIOS.map(function renderScenario(value) {
-            return [value, t('scenario.' + value)];
+        ),
+        h(
+          'div',
+          { className: 'dpc-control' },
+          h('span', { className: 'dpc-row-label' }, t('scenario.label')),
+          h(Chips, {
+            name: t('scenario.label'),
+            value: scenario,
+            options: SCENARIOS.map(function renderScenario(value) {
+              return [value, t('scenario.' + value)];
+            }),
+            onChange: onScenarioChange,
           }),
-          onChange: onScenarioChange,
-        }),
+        ),
       );
 
   const running = busy
@@ -297,7 +300,7 @@ function EnhancePanel(props) {
         'div',
         { className: 'dpc-row' },
         h('span', { className: 'dpc-spinner' }),
-        h('span', null, t('panel.running')),
+        h('span', { className: 'dpc-hint' }, t('panel.running')),
       )
     : null;
 
@@ -305,10 +308,16 @@ function EnhancePanel(props) {
     ? h(
         'div',
         { className: 'dpc-field' },
-        h('p', { className: 'dpc-error' }, t('error.title') + '：' + errorText(t, state.error)),
+        h(
+          'p',
+          { className: 'dpc-error' },
+          h(icons.Alert, { size: 14 }),
+          ' ',
+          t('error.title') + '：' + errorText(t, state.error),
+        ),
         h(
           'div',
-          { className: 'dpc-settings-footer' },
+          { className: 'dpc-footer' },
           h('button', { type: 'button', className: 'dpc-action', onClick: onRetry }, t('result.retry')),
           h('button', { type: 'button', className: 'dpc-action', 'data-variant': 'ghost', onClick: onDiscard }, t('result.discard')),
         ),
@@ -319,13 +328,18 @@ function EnhancePanel(props) {
     ? h(
         'div',
         { className: 'dpc-field' },
-        h('p', { className: 'dpc-field-label' }, t('question.title')),
+        h('p', { className: 'dpc-field-label' }, h(icons.Target, { size: 14 }), t('question.title')),
         h('p', { className: 'dpc-hint' }, t('question.hint')),
         h(
           'ol',
           { className: 'dpc-notes' },
           questions.map(function renderQuestion(question, index) {
-            return h('li', { key: 'q' + index }, typeof question === 'string' ? question : String(question));
+            return h(
+              'li',
+              { key: 'q' + index },
+              h('span', { className: 'dpc-ic' }, h(icons.Dot, { size: 12 })),
+              h('span', null, typeof question === 'string' ? question : String(question)),
+            );
           }),
         ),
         h('textarea', {
@@ -363,7 +377,7 @@ function EnhancePanel(props) {
     ? h(
         'div',
         { className: 'dpc-goal' },
-        h('span', { className: 'dpc-goal-label' }, t('result.goal')),
+        h('span', { className: 'dpc-goal-label' }, h(icons.Target, { size: 12 }), t('result.goal')),
         h('p', { className: 'dpc-goal-text' }, enhanced.goal),
       )
     : null;
@@ -371,18 +385,23 @@ function EnhancePanel(props) {
   const summaryBlock = enhanced && (enhanced.summary || (enhanced.notes && enhanced.notes.length > 0) || (enhanced.elevation && enhanced.elevation.length > 0))
     ? h(
         'div',
-        null,
+        { className: 'dpc-block' },
         enhanced.summary ? h('p', { className: 'dpc-summary' }, enhanced.summary) : null,
         enhanced.elevation && enhanced.elevation.length > 0
           ? h(
               'div',
               { className: 'dpc-block' },
-              h('span', { className: 'dpc-goal-label' }, t('result.elevation')),
+              h('span', { className: 'dpc-block-head' }, h(icons.Elevate, { size: 13 }), t('result.elevation')),
               h(
                 'ul',
                 { className: 'dpc-notes' },
                 enhanced.elevation.map(function renderElevation(item, index) {
-                  return h('li', { key: 'e' + index }, item);
+                  return h(
+                    'li',
+                    { key: 'e' + index },
+                    h('span', { className: 'dpc-ic' }, h(icons.Dot, { size: 12 })),
+                    h('span', null, item),
+                  );
                 }),
               ),
             )
@@ -391,12 +410,17 @@ function EnhancePanel(props) {
           ? h(
               'div',
               { className: 'dpc-block' },
-              h('span', { className: 'dpc-goal-label' }, t('result.notes')),
+              h('span', { className: 'dpc-block-head' }, h(icons.Edit, { size: 13 }), t('result.notes')),
               h(
                 'ul',
-                { className: 'dpc-notes' },
+                { className: 'dpc-notes', 'data-tone': 'muted' },
                 enhanced.notes.map(function renderNote(note, index) {
-                  return h('li', { key: 'n' + index }, note);
+                  return h(
+                    'li',
+                    { key: 'n' + index },
+                    h('span', { className: 'dpc-ic' }, h(icons.Dot, { size: 12 })),
+                    h('span', null, note),
+                  );
                 }),
               ),
             )
@@ -423,10 +447,10 @@ function EnhancePanel(props) {
                   onToggleHunk(hunk.id, event.target.checked);
                 },
               }),
-              h('span', null, label),
+              h('span', { className: 'dpc-hunk-name' }, label),
               h(
                 'span',
-                { className: 'dpc-badge', style: { marginLeft: 'auto' } },
+                { className: 'dpc-badge', 'data-kind': hunk.kind, style: { marginLeft: 'auto' } },
                 t('result.kind.' + hunk.kind),
               ),
             ),
@@ -434,10 +458,10 @@ function EnhancePanel(props) {
               'div',
               { className: 'dpc-hunk-lines' },
               hunk.oldLines.map(function renderOld(line, index) {
-                return h('div', { className: 'dpc-line', 'data-kind': 'remove', key: 'o' + index }, '- ' + line);
+                return h('span', { className: 'dpc-line', 'data-kind': 'remove', 'data-sign': '−', key: 'o' + index }, line);
               }),
               hunk.newLines.map(function renderNew(line, index) {
-                return h('div', { className: 'dpc-line', 'data-kind': 'add', key: 'a' + index }, '+ ' + line);
+                return h('span', { className: 'dpc-line', 'data-kind': 'add', 'data-sign': '+', key: 'a' + index }, line);
               }),
             ),
           );
@@ -451,14 +475,14 @@ function EnhancePanel(props) {
         { className: 'dpc-split' },
         h(
           'div',
-          { className: 'dpc-pane' },
-          h('div', { className: 'dpc-pane-title' }, t('result.before')),
+          { className: 'dpc-pane', 'data-side': 'before' },
+          h('div', { className: 'dpc-pane-title' }, h(icons.TextLines, { size: 13 }), t('result.before')),
           h('pre', { className: 'dpc-pane-body' }, state.base),
         ),
         h(
           'div',
-          { className: 'dpc-pane' },
-          h('div', { className: 'dpc-pane-title' }, t('result.after')),
+          { className: 'dpc-pane', 'data-side': 'after' },
+          h('div', { className: 'dpc-pane-title' }, h(icons.SparkleLines, { size: 13 }), t('result.after')),
           h('pre', { className: 'dpc-pane-body' }, state.result !== null ? state.result.prompt : ''),
         ),
       )
@@ -471,7 +495,7 @@ function EnhancePanel(props) {
   const viewToggle = hasResult
     ? h(
         'div',
-        { className: 'dpc-row' },
+        { className: 'dpc-viewbar' },
         h(Chips, {
           name: 'view',
           value: state.view,
@@ -485,34 +509,29 @@ function EnhancePanel(props) {
     : null;
 
   const refineBlock = state.status === 'result' || state.status === 'applied'
-    ? h(
-        'div',
-        { className: 'dpc-field' },
-        state.showRefine
-          ? h(
-              'div',
-              { className: 'dpc-row', style: { alignItems: 'stretch' } },
-              h('textarea', {
-                className: 'dpc-textarea',
-                placeholder: t('result.refinePlaceholder'),
-                value: state.refineText,
-                onChange: onRefineChange,
-                style: { flex: '1 1 280px' },
-              }),
-              h(
-                'button',
-                {
-                  type: 'button',
-                  className: 'dpc-action',
-                  'data-variant': 'primary',
-                  disabled: !state.refineText.trim(),
-                  onClick: onRefineSubmit,
-                },
-                t('result.refineSubmit'),
-              ),
-            )
-          : null,
-      )
+    ? state.showRefine
+      ? h(
+          'div',
+          { className: 'dpc-refine' },
+          h('textarea', {
+            className: 'dpc-textarea',
+            placeholder: t('result.refinePlaceholder'),
+            value: state.refineText,
+            onChange: onRefineChange,
+          }),
+          h(
+            'button',
+            {
+              type: 'button',
+              className: 'dpc-action',
+              'data-variant': 'primary',
+              disabled: !state.refineText.trim(),
+              onClick: onRefineSubmit,
+            },
+            t('result.refineSubmit'),
+          ),
+        )
+      : null
     : null;
 
   const resultFooter = hasResult && state.status !== 'applied'
@@ -538,11 +557,11 @@ function EnhancePanel(props) {
     ? h(
         'div',
         { className: 'dpc-footer' },
-        h('span', { className: 'dpc-saved' }, t('result.applied')),
+        h('span', { className: 'dpc-saved' }, h(icons.Check, { size: 14 }), t('result.applied')),
         h(
           'div',
           { className: 'dpc-footer-end' },
-          h('button', { type: 'button', className: 'dpc-action', onClick: onUndo }, t('result.undo')),
+          h('button', { type: 'button', className: 'dpc-action', onClick: onUndo }, h(icons.Undo, { size: 13 }), t('result.undo')),
           h('button', { type: 'button', className: 'dpc-action', onClick: onToggleRefine }, t('result.refine')),
           h('button', { type: 'button', className: 'dpc-action', 'data-variant': 'primary', onClick: onClose }, t('applied.done')),
         ),

@@ -73,6 +73,9 @@ const ZH = {
 
   'settings.title': '提示词增强',
   'settings.desc': '配置 ✨ 增强按钮的默认行为。配置保存在本机浏览器存储里，不会上传。',
+  'settings.section.defaults': '默认行为',
+  'settings.section.model': '使用模型',
+  'settings.footer.note': '设置只保存在本机浏览器存储，不会上传。',
   'settings.language': '界面语言',
   'settings.language.auto': '跟随 DSH 界面',
   'settings.language.zh': '中文',
@@ -164,6 +167,9 @@ const EN = {
 
   'settings.title': 'Prompt enhancement',
   'settings.desc': 'Defaults for the ✨ enhance button. Settings stay in this browser and are never uploaded.',
+  'settings.section.defaults': 'Defaults',
+  'settings.section.model': 'Model',
+  'settings.footer.note': 'Settings stay in this browser and are never uploaded.',
   'settings.language': 'Language',
   'settings.language.auto': 'Follow the DSH UI',
   'settings.language.zh': '中文',

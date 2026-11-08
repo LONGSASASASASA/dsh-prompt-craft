@@ -9,31 +9,12 @@ const React = require('react');
 const actions = require('./actions.js');
 const store = require('./store.js');
 const { createTranslator } = require('./i18n.js');
+const icons = require('./icons.js');
 
 const h = React.createElement;
 
-/**
- * Four-point star with a small companion star; inherits currentColor.
- * @param {{small?: boolean}} props
- * @returns {any}
- */
-function SparkleIcon(props) {
-  return h(
-    'svg',
-    {
-      viewBox: '0 0 16 16',
-      fill: 'none',
-      stroke: 'currentColor',
-      strokeWidth: 1.4,
-      strokeLinecap: 'round',
-      strokeLinejoin: 'round',
-      'aria-hidden': 'true',
-      focusable: 'false',
-    },
-    h('path', { d: 'M6.4 2.2l1.05 2.55L10 5.8 7.45 6.85 6.4 9.4 5.35 6.85 2.8 5.8l2.55-1.05z' }),
-    h('path', { d: 'M11.4 9.2l.6 1.45 1.45.6-1.45.6-.6 1.45-.6-1.45-1.45-.6 1.45-.6z' }),
-  );
-}
+/** The sparkle glyph, kept exported for the panel/header reuse. */
+const SparkleIcon = icons.Sparkle;
 
 /**
  * @param {Record<string, any>} props

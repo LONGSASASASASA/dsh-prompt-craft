@@ -12,7 +12,7 @@
 
 ![输入框里的 ✨ 按钮](docs/screenshots/composer-typed.png)
 
-点一下，面板出现在输入框上方、与输入框左右对齐：外圈是浅蓝渐变描边，顶部是「真正的目标」和「立意升维」说明，下面默认停在「对比」视图：
+点一下，面板出现在输入框上方、与输入框左右对齐：玻璃质感的卡片 + 浅蓝渐变描边，顶部是「真正的目标」和「立意升维」说明，下面默认停在「对比」视图：
 
 ![增强结果：真正的目标、立意升维与逐段接受](docs/screenshots/panel-result.png)
 
@@ -24,11 +24,17 @@
 
 ![应用后的输入框](docs/screenshots/composer-applied.png)
 
-设置页是同一套语言：一节大卡片，每行左边是说明、右边是选项；「增强使用的模型」直接从本机已连接的模型里点选，不用自己背 provider / model：
+设置页是同一套语言：hero 区 + 一节大卡片，每行左边是说明、右边是选项；「增强使用的模型」直接从本机已连接的模型里点选，不用自己背 provider / model：
 
 ![设置页：中文标题、单张卡片、从本机同步的模型](docs/screenshots/settings.png)
 
-截图来自 v0.2.4 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
+深色主题下是另一套令牌，玻璃面板、渐变环、目标卡与卡片分组同样成立：
+
+![深色主题下的增强结果面板](docs/screenshots/panel-result-dark.png)
+
+![深色主题下的设置页](docs/screenshots/settings-dark.png)
+
+截图来自 v0.3.0 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
 
 ## 为什么是「以目标为导向」
 
@@ -81,6 +87,7 @@
 - 🧩 **diff 预览 + 分段接受**：逐 hunk 勾选、对比视图（默认）/ 分段视图、全部应用、撤销。
 - ✂️ **精炼输出**：不丢要求的前提下压缩字数，中文可带文言式紧凑（须 / 勿 / 免 / 四字短语），但以可读为先；单行草稿有字数上限。
 - 🪟 **与输入框等宽**：面板左右边缘与输入框对齐，外圈浅蓝渐变描边，深浅色主题下都清晰。
+- 🎨 **玻璃质感界面**：半透明面板 + 1px 渐变描边 + 内联 SVG 图标（不用 emoji），设置页有 hero 区、分组卡片与模型磁贴；全部跟随 DSH 的明暗主题令牌，并尊重 `prefers-reduced-motion`。
 - ❓ **追问补全**：缺信息时先问 1–2 个问题，回答后带着答案重写。
 - 🔁 **迭代改稿**：在上一版基础上继续给修改意见。
 - ⚙️ **设置页**：单张卡片，每行一组文案 + 选项；标题与文案跟随 DSH 界面语言（中文下就是「提示词增强」）。
@@ -117,7 +124,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.4
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.3.0
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
