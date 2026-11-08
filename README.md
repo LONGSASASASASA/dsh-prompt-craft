@@ -24,7 +24,11 @@
 
 ![应用后的输入框](docs/screenshots/composer-applied.png)
 
-截图来自 v0.2.2 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
+设置页是同一套语言：一节大卡片，每行左边是说明、右边是选项；「增强使用的模型」直接从本机已连接的模型里点选，不用自己背 provider / model：
+
+![设置页：中文标题、单张卡片、从本机同步的模型](docs/screenshots/settings.png)
+
+截图来自 v0.2.4 的真实运行（DeepSeek-V4.1-Flash，`deepseek-flash`），未做后期美化。
 
 ## 为什么是「以目标为导向」
 
@@ -79,7 +83,9 @@
 - 🪟 **与输入框等宽**：面板左右边缘与输入框对齐，外圈浅蓝渐变描边，深浅色主题下都清晰。
 - ❓ **追问补全**：缺信息时先问 1–2 个问题，回答后带着答案重写。
 - 🔁 **迭代改稿**：在上一版基础上继续给修改意见。
-- ⚙️ **设置页**：界面语言、默认力度、默认场景、是否跟随会话模型。
+- ⚙️ **设置页**：单张卡片，每行一组文案 + 选项；标题与文案跟随 DSH 界面语言（中文下就是「提示词增强」）。
+- 🧠 **模型从本机同步**：设置里直接点选本机已连接的模型（按 provider 分组），默认仍跟随当前会话，不要求你记 provider / model。
+- 🔘 **草稿态提示**：输入框有内容时 ✨ 带一层浅灰底，一眼看出「可以点了」。
 - 🌏 **中英双语**：跟随浏览器语言，可在设置里覆盖。
 
 ## 和同类插件比
@@ -111,7 +117,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.2
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.4
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -141,16 +147,16 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 ## 设置
 
-设置页位于 DSH 设置的插件页（「提示词增强」一节）：
+设置页位于 DSH 设置的插件页（「提示词增强」一节）。整个设置是一张卡片，行内左边是说明、右边是控件：
 
 | 项 | 说明 |
 | --- | --- |
-| 界面语言 | 跟随浏览器 / 中文 / English |
+| 界面语言 | 跟随 DSH 界面（默认）/ 中文 / English；决定插件自己的文案语言 |
 | 默认力度 | 轻改 / 目标导向 / 立意升维（面板里可临时切换） |
 | 默认场景 | 自动识别 / 代码 / 写作 / 调研 / Agent / 通用 |
-| 增强使用的模型 | 默认跟随当前会话模型；也可指定 provider / model / reasoning effort |
+| 增强使用的模型 | 默认跟随当前会话；点「指定模型」后，可从本机已同步的模型里按 provider 分组点选，也可以手填 provider / model / 思考强度 |
 
-模型策略：默认完全跟随当前会话（含会话里临时切换的模型），只有你在设置里显式指定时才会覆盖。设置保存在本机浏览器 `localStorage`，不上传。
+模型从哪来：插件从你当前会话的模型目录里同步 provider 与模型（打开过一次对话即可），设置页会显示「已从本机同步 N 个可用模型」；同步不到时保留手动填写作为兜底，并提供「重新同步」。模型策略默认完全跟随当前会话（含会话里临时切换的模型），只有你显式指定时才覆盖。设置保存在本机浏览器 `localStorage`，不上传。
 
 ## 兼容性与实现
 
@@ -163,7 +169,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，96 个用例
+npm test           # node --test，97 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 

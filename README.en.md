@@ -24,7 +24,11 @@ What lands in the composer is the tighter version — the same requirements in f
 
 ![The composer after applying](docs/screenshots/composer-applied.png)
 
-Screenshots are from a real v0.2.2 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
+The settings page speaks the same language: one large card, each row has the explanation on the left and the control on the right; "Model for enhancement" is picked straight from the models already connected on this machine, so you never have to remember a provider / model pair:
+
+![Settings: Chinese title, a single card, models synced from this machine](docs/screenshots/settings.png)
+
+Screenshots are from a real v0.2.4 run (DeepSeek-V4.1-Flash, `deepseek-flash`), no retouching.
 
 ## Why "goal first"
 
@@ -79,7 +83,9 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🪟 **Same width as the composer** — the panel shares the composer's left and right edges, with a light blue gradient outline that stays clear in light and dark themes.
 - ❓ **Clarifying questions** — answer 1–2 questions and the draft is rewritten with those answers folded in.
 - 🔁 **Refine loop** — give the last rewrite another instruction.
-- ⚙️ **Settings page** — UI language, default intensity, default scenario, model override.
+- ⚙️ **One settings card** — every option sits in a single card, one row per setting with its explanation on the left and the control on the right; the title and copy follow the DSH UI language ("提示词增强" in Chinese).
+- 🧠 **Models synced from this machine** — pick a model from the providers already connected here, grouped by provider; the default still follows the current session, so you never need to know a provider / model pair.
+- 🔘 **Draft-state hint** — once the composer has text, ✨ gets a soft grey background so it is obvious the button is ready.
 - 🌏 **Chinese and English UI** — follows the browser language, overridable in settings.
 
 ## How it compares
@@ -111,7 +117,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.2
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.2.4
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -140,16 +146,16 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 ## Settings
 
-The settings page lives in DSH's plugin settings ("Prompt enhancement" section):
+The settings page lives in DSH's plugin settings ("Prompt enhancement" section). The whole page is one card, each row with its explanation on the left and the control on the right:
 
 | Option | Description |
 | --- | --- |
-| UI language | Follow the browser / Chinese / English |
+| UI language | Follow the DSH UI (default) / Chinese / English — decides the plugin's own copy |
 | Default intensity | Light / Goal-first / Elevated (switchable in the panel) |
 | Default scenario | Auto / Code / Writing / Research / Agent / General |
-| Model | Follow the current session's model by default; optionally pin provider / model / reasoning effort |
+| Model for enhancement | Follow the current session by default; pick "Pin a model" to choose from the models synced from this machine (grouped by provider), or fill in provider / model / reasoning effort manually |
 
-By default the plugin uses exactly the model the current session is using (including temporary switches in the composer). Settings are stored in the browser's `localStorage` and never uploaded.
+Where the models come from: the plugin syncs providers and models from the current session's model directory (open any conversation once and the list appears); the page shows "Synced N available models from this machine". When nothing can be synced it keeps manual entry as a fallback plus a "Sync again" button. By default the plugin uses exactly the model the current session is using (including temporary switches in the composer); it only overrides when you pin one. Settings are stored in the browser's `localStorage` and never uploaded.
 
 ## Compatibility and design notes
 
@@ -162,7 +168,7 @@ By default the plugin uses exactly the model the current session is using (inclu
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 96 cases
+npm test           # node --test, 97 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

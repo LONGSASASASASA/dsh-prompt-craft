@@ -42,6 +42,7 @@ function SparkleIcon(props) {
 function EnhanceButton(props) {
   store.useSettings();
   const sessionId = props.sessionId || (props.session && props.session.sessionId) || '';
+  actions.noteSession(sessionId);
   const state = store.useSessionState(sessionId);
   const t = createTranslator(actions.currentLocale());
   const input = typeof props.useInput === 'function' ? props.useInput(function selectInput(value) { return value; }) : null;
@@ -68,6 +69,7 @@ function EnhanceButton(props) {
       type: 'button',
       className: 'dpc-btn',
       'data-active': state.open && state.status !== 'idle' ? 'true' : 'false',
+      'data-filled': canEnhance ? 'true' : 'false',
       'data-busy': busy ? 'true' : 'false',
       title: title,
       'aria-label': t('button.label'),

@@ -82,10 +82,117 @@ function modelOverride() {
 }
 
 /**
+ * The language the DSH client itself is showing, when the locale service is visible.
+ * @returns {string}
+ */
+function hostLocale() {
+  const locale = service('locale');
+  try {
+    if (locale && typeof locale.getLocale === 'function') {
+      const snapshot = locale.getLocale();
+      if (snapshot && typeof snapshot.active === 'string') return snapshot.active;
+    }
+  } catch (error) {
+    /* The locale service is optional; fall back to the browser language. */
+  }
+  return '';
+}
+
+/**
+ * Plugin copy language: an explicit choice first, then the DSH UI language,
+ * then the browser language.
  * @returns {'zh'|'en'}
  */
 function currentLocale() {
-  return normalizeLocale(store.getSettings().locale);
+  const preferred = store.getSettings().locale;
+  if (preferred === 'zh' || preferred === 'en') return preferred;
+  return normalizeLocale(hostLocale() || 'auto');
+}
+
+/**
+ * The settings navigation label, written in the language the app is using.
+ * @returns {string}
+ */
+function sectionLabel() {
+  return currentLocale() === 'zh' ? '提示词增强' : 'Prompt enhancement';
+}
+
+/** Session whose model directory feeds the settings picker (set by the composer widgets). */
+let lastSessionId = '';
+
+/**
+ * Remember the session the composer widgets are mounted for.
+ * @param {unknown} sessionId
+ * @returns {void}
+ */
+function noteSession(sessionId) {
+  if (typeof sessionId === 'string' && sessionId) lastSessionId = sessionId;
+}
+
+/**
+ * Provider/model groups the current session can use, read from the model-selection
+ * service. Returns null when the plugin cannot see that directory (for example the
+ * settings page opened before any conversation rendered the composer widgets).
+ * @returns {{sessionId: string, groups: Array<{id: string, name: string, models: Array<{id: string, name: string}>}>} | null}
+ */
+function modelCatalog() {
+  const directories = service('modelDirectories');
+  if (!directories || typeof directories.directoryFor !== 'function') return null;
+  if (!lastSessionId) return null;
+  let directory = null;
+  try {
+    directory = directories.directoryFor(lastSessionId);
+  } catch (error) {
+    return null;
+  }
+  if (!directory || !directory.store) return null;
+  let snapshot = null;
+  try {
+    snapshot = directory.store.getSnapshot();
+  } catch (error) {
+    return null;
+  }
+  if (!snapshot) return null;
+  const groups = [];
+  const source = Array.isArray(snapshot.groups) ? snapshot.groups : [];
+  for (const group of source) {
+    if (!group || typeof group.id !== 'string' || !group.id) continue;
+    const models = [];
+    for (const model of Array.isArray(group.models) ? group.models : []) {
+      if (!model || typeof model.id !== 'string' || !model.id) continue;
+      models.push({ id: model.id, name: typeof model.name === 'string' && model.name ? model.name : model.id });
+    }
+    if (models.length === 0) continue;
+    groups.push({
+      id: group.id,
+      name: typeof group.name === 'string' && group.name ? group.name : group.id,
+      models: models,
+    });
+  }
+  return { sessionId: lastSessionId, groups: groups };
+}
+
+/**
+ * Ask the model directory to (re)load its catalog; the caller re-renders when it settles.
+ * @returns {Promise<unknown>}
+ */
+function refreshModelCatalog() {
+  const directories = service('modelDirectories');
+  if (!directories || typeof directories.directoryFor !== 'function' || !lastSessionId) return Promise.resolve(null);
+  let directory = null;
+  try {
+    directory = directories.directoryFor(lastSessionId);
+  } catch (error) {
+    return Promise.resolve(null);
+  }
+  if (!directory || typeof directory.load !== 'function') return Promise.resolve(null);
+  try {
+    return Promise.resolve(directory.load()).catch(function ignore() {
+      return null;
+    });
+  } catch (error) {
+    return Promise.resolve(null);
+  }
 }
 
 /** @param {unknown} sessionId */
@@ -527,6 +634,10 @@ module.exports = {
   modelHintFor,
   modelOverride,
   currentLocale,
+  sectionLabel,
+  noteSession,
+  modelCatalog,
+  refreshModelCatalog,
   enhance,
   refine,
   enhanceWithAnswers,

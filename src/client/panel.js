@@ -136,6 +136,7 @@ function Chips(props) {
 function EnhancePanel(props) {
   const settings = store.useSettings();
   const sessionId = props.sessionId || (props.session && props.session.sessionId) || '';
+  actions.noteSession(sessionId);
   const state = store.useSessionState(sessionId);
   const t = createTranslator(actions.currentLocale());
   const inputActions = props.inputActions || (props.session && props.session.inputActions) || null;

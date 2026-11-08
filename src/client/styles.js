@@ -27,6 +27,9 @@ const CSS = `
   transition: background-color 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 .dpc-btn:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.14)); color: var(--dsw-alias-label-primary, currentColor); }
+/* A draft present: the icon is live, so it sits on a soft grey chip. */
+.dpc-btn[data-filled='true'] { background: var(--dsw-alias-bg-module-platform, rgba(127,127,127,.12)); color: var(--dsw-alias-label-primary, currentColor); background: color-mix(in srgb, var(--dsw-alias-label-primary, #0f1115) 10%, transparent); }
+.dpc-btn[data-filled='true']:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.18)); background: color-mix(in srgb, var(--dsw-alias-label-primary, #0f1115) 16%, transparent); }
 .dpc-btn:focus-visible { outline: 2px solid var(--dsw-focus-ring-color, #4f7cff); outline-offset: 1px; }
 .dpc-btn[data-active='true'] { color: var(--dsw-static-blue-450, #4f7cff); background: var(--dsw-alias-state-business-tertiary, rgba(79,124,255,.14)); }
 .dpc-btn[disabled] { cursor: default; opacity: .38; }
@@ -273,9 +276,65 @@ const CSS = `
   opacity: .8;
 }
 
-.dpc-settings { display: flex; flex-direction: column; gap: 14px; max-width: 620px; }
+.dpc-settings { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
 .dpc-settings-title { margin: 0; font-size: 15px; font-weight: 600; }
 .dpc-settings-desc { margin: 0; font-size: 12px; opacity: .66; }
+/* One settings card: a titled shell whose rows hold copy on the left and the
+   control on the right, so the page reads as a list of settings, not a form. */
+.dpc-card {
+  border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.22));
+  border-radius: 14px;
+  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-base, #fff));
+  overflow: hidden;
+}
+.dpc-card-head { padding: 14px 16px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.16)); }
+.dpc-card-title { margin: 0; font-size: 15px; font-weight: 600; }
+.dpc-card-desc { margin: 4px 0 0; font-size: 12px; opacity: .66; line-height: 1.5; }
+.dpc-card-body { display: flex; flex-direction: column; }
+.dpc-setting-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.12));
+  flex-wrap: wrap;
+}
+.dpc-card-body > .dpc-setting-row:first-child { border-top: 0; }
+.dpc-setting-text { flex: 1 1 240px; min-width: 0; }
+.dpc-setting-title { margin: 0; font-size: 13px; font-weight: 600; }
+.dpc-setting-desc { margin: 3px 0 0; font-size: 12px; opacity: .62; line-height: 1.5; }
+.dpc-setting-control { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 220px; }
+.dpc-setting-control .dpc-chip-group { align-self: flex-end; }
+.dpc-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.16));
+}
+/* Local model picker: one row per provider, one chip per model. */
+.dpc-model-panel { display: flex; flex-direction: column; gap: 8px; padding: 0 16px 14px; }
+.dpc-model-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.dpc-model-group { display: flex; flex-direction: column; gap: 5px; }
+.dpc-model-group-name { font-size: 12px; opacity: .62; }
+.dpc-model-options { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.dpc-model-option {
+  padding: 5px 10px;
+  border: 1px solid var(--dsw-alias-border-l2, rgba(127,127,127,.3));
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dpc-model-option:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,.12)); }
+.dpc-model-option[data-selected='true'] {
+  border-color: var(--dsw-static-blue-450, #4f7cff);
+  background: var(--dsw-alias-state-business-tertiary, rgba(79,124,255,.12));
+  color: var(--dsw-static-blue-450, #4f7cff);
+}
 .dpc-field { display: flex; flex-direction: column; gap: 5px; }
 .dpc-field-label { font-size: 12px; font-weight: 600; }
 .dpc-input {

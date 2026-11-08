@@ -174,9 +174,14 @@ function walk(node, visit) {
 }
 
 function textOf(node) {
+  if (node === null || node === undefined) return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(textOf).join('');
-  if (node && typeof node === 'object' && Array.isArray(node.children)) return node.children.map(textOf).join('');
+  if (typeof node === 'function') return textOf(node({}));
+  if (typeof node === 'object') {
+    if (typeof node.type === 'function') return textOf(node.type(node.props || {}));
+    if (Array.isArray(node.children)) return node.children.map(textOf).join('');
+  }
   return '';
 }
 
@@ -243,18 +248,36 @@ function boot(options) {
   const directories = settings.directories || {
     directoryFor() {
       return {
+        load() {
+          return Promise.resolve();
+        },
         store: {
           getSnapshot() {
-            return { current: { provider: 'deepseek-account', model: 'deepseek-v4-flash' } };
+            return {
+              current: { provider: 'deepseek-account', model: 'deepseek-v4-flash' },
+              groups: [
+                {
+                  id: 'deepseek-account',
+                  name: 'DeepSeek Account',
+                  models: [{ id: 'deepseek-v4-flash', name: 'DeepSeek-V4.1-Flash' }],
+                },
+              ],
+            };
           },
         },
       };
+    },
+  };
+  const locale = {
+    getLocale() {
+      return { active: settings.locale || 'zh', locales: [], revision: 0 };
     },
   };
   const ctx = {
     get(name) {
       if (name === 'slots') return slots;
       if (name === 'modelDirectories') return directories;
+      if (name === 'locale') return locale;
       return undefined;
     },
   };
@@ -314,6 +337,7 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.equal(button.props.className, 'dpc-btn');
   assert.equal(button.props.disabled, false);
   assert.equal(button.props['data-busy'], 'false');
+  assert.equal(button.props['data-filled'], 'true');
   assert.equal(button.props['aria-label'], '增强提示词');
 
   button.props.onClick();
@@ -451,14 +475,22 @@ test('the refine loop sends the previous rewrite and the instruction', async () 
   assert.equal(calls[1].body.previous, 'Write a poem about the sea, in four lines.');
 });
 
-test('the settings section saves to localStorage', () => {
+test('the settings section renders one card with the local model list', () => {
   const storage = createStorage();
   const { slots } = boot({ storage });
+  const EnhanceButton = componentFor(slots, 'conversation.input.right');
+  EnhanceButton({ sessionId: 's-7', useInput: (selector) => selector({ draft: 'hi' }) });
   const SettingsSection = componentFor(slots, 'settings.section');
 
   const section = SettingsSection({});
   assert.equal(section.props.className, 'dpc-settings');
+  const card = findNode(section, (node) => node.props && node.props.className === 'dpc-card');
+  assert.ok(card, 'all settings must live in one card');
+  assert.match(textOf(section), /提示词增强/);
   assert.match(textOf(section), /配置 ✨ 增强按钮的默认行为/);
+  assert.match(textOf(section), /跟随当前会话模型/);
+  assert.match(textOf(section), /DeepSeek-V4.1-Flash/);
+  assert.match(textOf(section), /已从本机同步 1 个可用模型/);
 
   const save = findButton(section, '保存');
   assert.ok(save);
@@ -472,11 +504,26 @@ test('the settings section saves to localStorage', () => {
   assert.equal(persisted.locale, 'auto');
 });
 
+test('the settings section falls back to manual model fields when nothing is synced', () => {
+  const { slots } = boot({ directories: { directoryFor: () => ({ load: () => Promise.resolve(), store: { getSnapshot: () => ({ groups: [] }) } }) } });
+  const SettingsSection = componentFor(slots, 'settings.section');
+
+  const section = SettingsSection({});
+  assert.match(textOf(section), /还没拿到本机模型列表/);
+  assert.ok(findButton(section, '重新同步'));
+  const inputs = [];
+  walk(section, (node) => {
+    if (node && node.type === 'input') inputs.push(node);
+  });
+  assert.equal(inputs.length, 3, 'provider, model and reasoning effort stay editable by hand');
+});
+
 test('an empty draft disables the button', () => {
   const { slots } = boot();
   const EnhanceButton = componentFor(slots, 'conversation.input.right');
   const button = EnhanceButton({ sessionId: 's-5', useInput: (selector) => selector({ draft: '   ' }) });
   assert.equal(button.props.disabled, true);
+  assert.equal(button.props['data-filled'], 'false');
   assert.equal(button.props.title, '先写点内容再增强');
 });
 

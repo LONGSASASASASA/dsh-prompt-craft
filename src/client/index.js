@@ -65,7 +65,7 @@ function apply(ctx) {
     register(
       slots,
       'settings.section',
-      { name: 'settings.section', id: 'prompt-craft', order: 40, label: function label() { return 'Prompt enhancement'; } },
+      { name: 'settings.section', id: 'prompt-craft', order: 40, label: function label() { return actions.sectionLabel(); } },
       SettingsSection,
     );
   } catch (error) {
