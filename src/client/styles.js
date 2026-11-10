@@ -486,6 +486,19 @@ const CSS = `
   font-size: 12.5px;
   line-height: 1.5;
 }
+.dpc-upstream {
+  margin: 6px 0 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--dpc-line) 90%, transparent);
+  background: var(--dpc-surface-2);
+  color: var(--dpc-fg-2);
+  font-family: var(--dpc-mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
 .dpc-textarea,
 .dpc-input {
   width: 100%;
@@ -612,6 +625,24 @@ const CSS = `
   font-weight: 500;
 }
 .dpc-model-option .dpc-ic { color: currentColor; }
+.dpc-model-test {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+.dpc-model-test .dpc-action { flex: none; }
+.dpc-probe-ok {
+  color: color-mix(in srgb, var(--dpc-success) 72%, var(--dpc-fg));
+  font-size: 12px;
+}
+.dpc-probe-error {
+  color: color-mix(in srgb, var(--dpc-danger) 82%, var(--dpc-fg));
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
 .dpc-card-foot {
   display: flex;
   align-items: center;

@@ -82,6 +82,26 @@ function modelOverride() {
 }
 
 /**
+ * Verify that a model route can actually answer.
+ *
+ * Used by the settings page ("test model"). The host performs one tiny call,
+ * applies the same reasoning-effort fallback as enhancement, and reports the
+ * upstream message verbatim when the route rejects the request.
+ *
+ * @param {{ provider: string, model: string, reasoningEffort?: string }|null} [explicitModel]
+ * @returns {Promise<{ provider: string, model: string, effort: string, elapsedMs: number, reply: string }>}
+ */
+async function probeModel(explicitModel) {
+  const model = explicitModel || modelOverride() || modelHintFor(lastSessionId);
+  const response = await callHost(
+    METHODS.PROBE,
+    { model: model || undefined, sessionId: lastSessionId || '' },
+    { timeoutMs: 120000 },
+  );
+  return response.result;
+}
+
+/**
  * The language the DSH client itself is showing, when the locale service is visible.
  * @returns {string}
  */
@@ -796,6 +816,7 @@ module.exports = {
   noteSession,
   modelCatalog,
   refreshModelCatalog,
+  probeModel,
   enhance,
   refine,
   enhanceWithAnswers,

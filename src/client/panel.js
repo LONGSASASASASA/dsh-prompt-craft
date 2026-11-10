@@ -232,6 +232,10 @@ function EnhancePanel(props) {
       )
     : null;
 
+  const providerMessage = state.error && state.error.details && typeof state.error.details.providerMessage === 'string'
+    ? state.error.details.providerMessage
+    : '';
+
   const errorBlock = state.status === 'error' && state.error
     ? h(
         'div',
@@ -243,6 +247,13 @@ function EnhancePanel(props) {
           ' ',
           t('error.title') + '：' + errorText(t, state.error),
         ),
+        providerMessage
+          ? h(
+              'p',
+              { className: 'dpc-hint dpc-upstream' },
+              t('error.providerDetail') + '：' + providerMessage,
+            )
+          : null,
         h(
           'div',
           { className: 'dpc-footer' },

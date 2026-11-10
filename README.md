@@ -172,6 +172,8 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 模型从哪来：插件从你当前会话的模型目录里同步 provider 与模型（打开过一次对话即可），设置页会显示「已从本机同步 N 个可用模型」；同步不到时保留手动填写作为兜底，并提供「重新同步」。模型策略默认完全跟随当前会话（含会话里临时切换的模型），只有你显式指定时才覆盖。设置保存在本机浏览器 `localStorage`，不上传。
 
+模型行下方有「测试模型」：用当前选择（或会话模型）发一次极短的调用，成功显示「已连通 · provider/model · N 秒」，失败直接贴出上游原文——排查「连不上模型」最快的方式。
+
 ## 微信 Bot 连接
 
 设置页有「增强设置 / 微信 Bot」两个页签。在「微信 Bot」里点「连接微信 Bot」，用手机微信扫码确认后即可：
@@ -182,6 +184,21 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 - 「撤销填入」把草稿恢复成填入前的样子；关掉自动填入时，输入框上方会出现提示条，点「填入」才写进草稿。
 
 实现上是**只借用腾讯的 iLink 协议**：插件自己实现扫码登录与长轮询（`getupdates`），不依赖 OpenClaw 或任何常驻进程。已知限制：iLink 会话约 **24 小时**到期，需要在设置页重新扫码；仅支持文本消息；这是个人微信账号的 Bot 通道，请按腾讯的服务条款谨慎使用。
+
+## 报错排查：`the model call did not complete`
+
+这是插件把模型失败原样收口后的提示。v0.4.3 起，面板里会同时显示「上游返回」的原文；设置页的「测试模型」能单独复现这条路由。按可能性排序：
+
+| 可能性 | 典型表现 | 怎么验证 | 怎么修 |
+| --- | --- | --- | --- |
+| 1. reasoning 参数与该路由不兼容 | 上游 400：`Unsupported value: 'none'`（noki 这类网关只认 low/medium/high/xhigh/max） | 看「上游返回」是否提到 `reasoning.effort` / `Supported values`；或点「测试模型」 | v0.4.3 会自动解析受支持档位并重试一次（优先 `low`）；仍失败就把「思考强度」显式设成 `low` |
+| 2. 模型名 / 路由不存在或未启用 | 上游 404、`model_not_found` | 「测试模型」；或在 composer 里换一个模型 | 改用本机模型列表里存在的模型；检查 profile 的 `llm-pi-ai.providers` 配置 |
+| 3. 凭据缺失 / 过期 | `MISSING_CREDENTIAL`、401/403 | 看「上游返回」；检查宿主账号设置是否已登录 | 重新登录或补 API key，重启 DSH |
+| 4. 网络 / 代理 / 端点不可达 | 长耗时后 `TIMEOUT` 或 `NETWORK` | 用 `curl` 直连 provider 的 `baseURL` | 检查代理、`baseURL`、证书；必要时换端点 |
+| 5. 上游限流 / 余额不足 | 429、`RATE_LIMIT`、`QUOTA` | 看「上游返回」里的 code / message | 稍后重试或换模型 |
+| 6. 请求体超限 | `PAYLOAD_TOO_LARGE`（413） | 草稿是否超过 20000 字 | 精简草稿（插件限制 1 MiB 请求体、20k 字草稿） |
+
+> 已知宿主侧细节：pi-ai 的 `openai-responses` 构建器在「模型声明了 reasoning、请求又没给 effort」时会补一个 `reasoning.effort: "none"`。官方网关通常接受 `none`，但 noki 这类自定义路由只接受 low..max，于是返回 400——这就是「本地 GLM 能用、noki-GPT 报 the model call did not complete」的常见原因。插件 v0.4.3 已针对它自动重试。
 
 ## 兼容性与实现
 
@@ -195,7 +212,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，105 个用例
+npm test           # node --test，123 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 

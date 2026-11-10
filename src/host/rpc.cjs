@@ -15,12 +15,19 @@ const {
   METHODS,
   LIMITS,
   ERROR_CODES,
+  REASONING_EFFORTS,
   validateEnhance,
   validateRefine,
+  validateProbe,
   tokenBudgetFor,
   isPlainObject,
 } = require('../protocol.cjs');
-const { buildEnhancePrompt, buildRefinePrompt, buildRepairMessages } = require('./templates.cjs');
+const {
+  buildEnhancePrompt,
+  buildRefinePrompt,
+  buildProbePrompt,
+  buildRepairMessages,
+} = require('./templates.cjs');
 const { parseModelOutput } = require('./parse-output.cjs');
 const { resolveModel } = require('./resolve-model.cjs');
 
@@ -188,11 +195,85 @@ function finishFailure(finish, text) {
   if (!finish || finish.kind === 'stop' || finish.kind === 'tool-calls') return null;
   if (finish.kind === 'max-tokens') return null;
   const failure = finish.failure || {};
-  return makeError(ERROR_CODES.LLM_FAILED, 'the model call did not complete', {
+  const details = {
     reason: finish.kind,
     providerCode: failure.code || failure.kind || 'unknown',
     partialChars: typeof text === 'string' ? text.length : 0,
+  };
+  const message = typeof failure.message === 'string' ? failure.message.trim() : '';
+  if (message) details.providerMessage = message.slice(0, 1200);
+  for (const key of ['status', 'param', 'type', 'retryAfter', 'hint']) {
+    const value = failure[key];
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      details[key] = typeof value === 'string' ? value.slice(0, 400) : value;
+    }
+  }
+  return makeError(ERROR_CODES.LLM_FAILED, 'the model call did not complete', details);
+}
+
+/**
+ * Pull the acceptable values out of a provider message such as
+ * `Unsupported value: 'none'. Supported values are: 'low', 'medium', 'high'.`
+ * @param {string} message
+ * @returns {string[]}
+ */
+function supportedEffortsFrom(message) {
+  const match = /supported values? (?:are|is)\s*:?\s*([^.]*)/i.exec(message);
+  if (!match) return [];
+  const quoted = match[1].match(/'([a-zA-Z_-]+)'/g);
+  if (!quoted) return [];
+  return quoted
+    .map((token) => token.replace(/'/g, '').toLowerCase())
+    .filter((effort) => REASONING_EFFORTS.indexOf(effort) !== -1);
+}
+
+/**
+ * Decide whether one failed call deserves a quiet second attempt.
+ *
+ * Custom pi-ai routes turn "no effort" into `reasoning.effort: "none"`, which
+ * strict gateways reject (noki: `Unsupported value: 'none'`). Others reject a
+ * sampling temperature. Both are recoverable without asking the user.
+ *
+ * @param {{ provider: string, model: string, reasoningEffort?: string }} model
+ * @param {{ kind: string, failure?: any }|undefined} finish
+ * @returns {{ model: object, note: Record<string, string>, dropTemperature?: boolean } | null}
+ */
+function planRetry(model, finish) {
+  const failure = (finish && finish.failure) || {};
+  const message = String(failure.message || '');
+  if (!message) return null;
+  // The user picked an effort explicitly; never silently change it.
+  if (model.reasoningEffort) return null;
+  if (/reasoning|effort|unsupported value/i.test(message)) {
+    const efforts = supportedEffortsFrom(message);
+    if (efforts.length > 0) {
+      const pick = efforts.indexOf('low') === -1 ? efforts[0] : 'low';
+      return {
+        model: Object.assign({}, model, { reasoningEffort: pick }),
+        note: { reasoningEffort: pick },
+      };
+    }
+  }
+  if (/temperature/i.test(message) && /unsupported|invalid|not supported/i.test(message)) {
+    return { model, note: { temperatureOmitted: 'true' }, dropTemperature: true };
+  }
+  return null;
+}
+
+/**
+ * One call, plus the transparent retry described in {@link planRetry}.
+ * @returns {Promise<{ text: string, finish?: any, effort: string, retry?: Record<string, string> }>}
+ */
+async function callModelAuto(llm, prompt, model, timeoutMs) {
+  const first = await callModel(llm, prompt, model, timeoutMs);
+  if (!first.finish || first.finish.kind !== 'error') return first;
+  const retry = planRetry(model, first.finish);
+  if (!retry) return first;
+  const second = await callModel(llm, prompt, retry.model, timeoutMs, {
+    dropTemperature: retry.dropTemperature,
   });
+  second.retry = retry.note;
+  return second;
 }
 
 /**
@@ -202,21 +283,24 @@ function finishFailure(finish, text) {
  * @param {number} timeoutMs
  * @returns {Promise<{ text: string, finish?: any }>}
  */
-async function callModel(llm, prompt, model, timeoutMs) {
+async function callModel(llm, prompt, model, timeoutMs, extra) {
+  const omitTemperature = !!(extra && extra.dropTemperature);
   const options = {
     provider: model.provider,
     model: model.model,
     system: prompt.system,
     messages: prompt.messages,
-    temperature: TEMPERATURE,
     maxTokens: tokenBudgetFor(model.reasoningEffort),
   };
+  if (!omitTemperature) options.temperature = TEMPERATURE;
   if (model.reasoningEffort) options.reasoningEffort = model.reasoningEffort;
   const stream = llm.stream(options);
   if (!stream || typeof stream[Symbol.asyncIterator] !== 'function') {
     throw makeError(ERROR_CODES.INTERNAL, 'the language model service returned no stream');
   }
-  return readStream(stream, timeoutMs);
+  const result = await readStream(stream, timeoutMs);
+  result.effort = model.reasoningEffort || '';
+  return result;
 }
 
 /**
@@ -228,11 +312,16 @@ async function callModel(llm, prompt, model, timeoutMs) {
  * @returns {Promise<{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt?: string }>}
  */
 async function generateResult(llm, prompt, model, timeoutMs) {
-  const first = await callModel(llm, prompt, model, timeoutMs);
+  const first = await callModelAuto(llm, prompt, model, timeoutMs);
   const failure = finishFailure(first.finish, first.text);
-  if (failure) return { ok: false, ...failure };
+  if (failure) {
+    if (first.retry) failure.details.retriedWith = first.retry;
+    return { ok: false, ...failure };
+  }
   const parsed = parseModelOutput(first.text);
-  if (parsed.ok) return parsed;
+  if (parsed.ok) {
+    return first.retry ? Object.assign({}, parsed, { retried: first.retry }) : parsed;
+  }
   if (first.finish && first.finish.kind === 'max-tokens') {
     return {
       ok: false,
@@ -247,10 +336,14 @@ async function generateResult(llm, prompt, model, timeoutMs) {
       { role: 'assistant', content: [{ type: 'text', text: String(first.text || '').slice(0, 4000) }] },
     ], buildRepairMessages()),
   };
-  const second = await callModel(llm, repairPrompt, model, timeoutMs);
+  const second = await callModelAuto(llm, repairPrompt, model, timeoutMs);
   const secondFailure = finishFailure(second.finish, second.text);
-  if (secondFailure) return { ok: false, ...secondFailure };
-  return parseModelOutput(second.text);
+  if (secondFailure) {
+    if (second.retry) secondFailure.details.retriedWith = second.retry;
+    return { ok: false, ...secondFailure };
+  }
+  const repaired = parseModelOutput(second.text);
+  return second.retry && repaired.ok ? Object.assign({}, repaired, { retried: second.retry }) : repaired;
 }
 
 /**
@@ -348,6 +441,72 @@ function createHandler(deps) {
         return;
       }
 
+      if (method === METHODS.PROBE) {
+        const probeCheck = validateProbe(body);
+        if (!probeCheck.ok) {
+          sendJson(res, statusFor(probeCheck.error), { ok: false, error: probeCheck.error });
+          return;
+        }
+        const probe = probeCheck.value;
+        const startedProbe = Date.now();
+        const resolved = deps.resolveModelFn(probe.model, probe.sessionId);
+        if (!resolved) {
+          sendJson(res, 400, {
+            ok: false,
+            error: makeError(ERROR_CODES.MODEL_UNRESOLVED, 'no provider/model could be resolved for this session', {
+              hint: 'pick a model in the composer or pin provider/model in the plugin settings',
+            }),
+          });
+          return;
+        }
+        let probeLlm;
+        try {
+          probeLlm = deps.getLlm();
+        } catch (error) {
+          sendJson(res, 500, {
+            ok: false,
+            error: makeError(ERROR_CODES.INTERNAL, error && error.message ? error.message : 'llm unavailable'),
+          });
+          return;
+        }
+        const probeMeta = {
+          provider: resolved.provider,
+          model: resolved.model,
+          source: resolved.source,
+          effort: resolved.reasoningEffort || '',
+        };
+        try {
+          const attempt = await callModelAuto(probeLlm, buildProbePrompt(), resolved, Math.min(timeoutMs, 60000));
+          probeMeta.elapsedMs = Date.now() - startedProbe;
+          probeMeta.effort = attempt.effort || '';
+          const failure = finishFailure(attempt.finish, attempt.text);
+          if (failure) {
+            if (attempt.retry) failure.details.retriedWith = attempt.retry;
+            sendJson(res, statusFor(failure), { ok: false, error: failure, meta: probeMeta });
+            return;
+          }
+          sendJson(res, 200, {
+            ok: true,
+            result: {
+              provider: resolved.provider,
+              model: resolved.model,
+              effort: attempt.effort || '',
+              elapsedMs: probeMeta.elapsedMs,
+              reply: String(attempt.text || '').trim().slice(0, 120),
+            },
+            meta: probeMeta,
+          });
+        } catch (error) {
+          const code = error && typeof error.code === 'string' ? error.code : ERROR_CODES.INTERNAL;
+          sendJson(res, statusFor({ code }), {
+            ok: false,
+            error: makeError(code, error && error.message ? String(error.message) : 'probe failed'),
+            meta: probeMeta,
+          });
+        }
+        return;
+      }
+
       const started = Date.now();
       const validated =
         method === METHODS.ENHANCE
@@ -413,7 +572,9 @@ function createHandler(deps) {
         source: model.source,
         elapsedMs: Date.now() - started,
         mode: request.mode,
+        effort: model.reasoningEffort || '',
       };
+      if (outcome.retried) meta.retriedWith = outcome.retried;
 
       if (!outcome.ok) {
         const details = Object.assign({}, outcome.details || {}, outcome.excerpt ? { excerpt: outcome.excerpt } : {});
@@ -465,4 +626,6 @@ module.exports = {
   sendJson,
   statusFor,
   generateResult,
+  planRetry,
+  callModelAuto,
 };

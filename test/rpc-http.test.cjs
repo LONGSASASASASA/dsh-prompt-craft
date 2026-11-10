@@ -384,3 +384,129 @@ test('registerRpc registers one exact route and returns its disposer', () => {
 
   assert.throws(() => registerRpc({}), /web server service is unavailable/);
 });
+
+/**
+ * A stand-in llm that records the options of each call.
+ * @param {Array<{stream: Function}>} streams
+ */
+function recordingLlm(streams) {
+  const seen = [];
+  let index = 0;
+  return {
+    calls: 0,
+    seen: seen,
+    stream(options) {
+      seen.push(options);
+      const next = streams[Math.min(index, streams.length - 1)];
+      index += 1;
+      this.calls += 1;
+      return next.stream();
+    },
+  };
+}
+
+/**
+ * @param {string} code
+ * @param {string} message
+ * @param {Record<string, unknown>} [extra]
+ */
+function errorStream(code, message, extra) {
+  return {
+    stream() {
+      return (async function* run() {
+        yield { type: 'block-start', index: 0, blockType: 'text' };
+        yield { type: 'finish', reason: { kind: 'error', failure: Object.assign({ code: code, message: message }, extra) } };
+      })();
+    },
+  };
+}
+
+const ENHANCED = JSON.stringify({ kind: 'enhanced', prompt: 'better' });
+
+test('handler retries a reasoning-effort rejection with a supported level', async () => {
+  const llm = recordingLlm([
+    errorStream(
+      'INVALID_REQUEST',
+      "Unsupported value: 'none'. Supported values are: 'low', 'medium', 'high', 'xhigh', and 'max'.",
+      { param: 'reasoning.effort' },
+    ),
+    textStream(ENHANCED),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(llm.calls, 2);
+  assert.equal(llm.seen[0].reasoningEffort, undefined);
+  assert.equal(llm.seen[1].reasoningEffort, 'low');
+  assert.deepEqual(payload.meta.retriedWith, { reasoningEffort: 'low' });
+  assert.equal(payload.result.prompt, 'better');
+});
+
+test('handler keeps an explicit reasoning effort and surfaces the provider message', async () => {
+  const llm = recordingLlm([
+    errorStream('INVALID_REQUEST', "Unsupported value: 'max' for this route", { status: 400 }),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x', model: { provider: 'p', model: 'm', reasoningEffort: 'max' } }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(llm.calls, 1);
+  assert.equal(payload.error.code, 'LLM_FAILED');
+  assert.equal(payload.error.details.providerCode, 'INVALID_REQUEST');
+  assert.match(payload.error.details.providerMessage, /Unsupported value/);
+  assert.equal(payload.error.details.status, 400);
+});
+
+test('handler omits the temperature when the route rejects it', async () => {
+  const llm = recordingLlm([
+    errorStream('INVALID_REQUEST', "Unsupported value: 'temperature' is not supported with this model"),
+    textStream(ENHANCED),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  assert.equal(res.statusCode, 200);
+  assert.equal(llm.calls, 2);
+  assert.equal(llm.seen[0].temperature, 0.4);
+  assert.equal(llm.seen[1].temperature, undefined);
+});
+
+test('probe returns the resolved route and a short reply', async () => {
+  const llm = recordingLlm([textStream('OK')]);
+  const { res } = await invoke(
+    handlerWith({
+      getLlm: () => llm,
+      resolveModelFn: () => ({ provider: 'noki', model: 'gpt-6.1-sol', source: 'request' }),
+    }),
+    {
+      body: JSON.stringify({ method: METHODS.PROBE, model: { provider: 'noki', model: 'gpt-6.1-sol' } }),
+    },
+  );
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.result.provider, 'noki');
+  assert.equal(payload.result.model, 'gpt-6.1-sol');
+  assert.equal(payload.result.reply, 'OK');
+  assert.equal(typeof payload.result.elapsedMs, 'number');
+});
+
+test('probe requires a model or a session', async () => {
+  const { res } = await invoke(handlerWith(), { body: JSON.stringify({ method: METHODS.PROBE }) });
+  assert.equal(res.statusCode, 400);
+  assert.equal(jsonOf(res).error.code, 'BAD_REQUEST');
+});
+
+test('probe reports a failure with the provider message', async () => {
+  const llm = recordingLlm([errorStream('INVALID_REQUEST', 'bad model name', { status: 404 })]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.PROBE, model: { provider: 'p', model: 'nope' } }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.details.providerMessage, 'bad model name');
+  assert.equal(payload.meta.provider, 'deepseek-account');
+});

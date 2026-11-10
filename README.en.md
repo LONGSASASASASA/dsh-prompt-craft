@@ -171,6 +171,8 @@ The settings page lives in DSH's plugin settings ("Prompt enhancement" section).
 
 Where the models come from: the plugin syncs providers and models from the current session's model directory (open any conversation once and the list appears); the page shows "Synced N available models from this machine". When nothing can be synced it keeps manual entry as a fallback plus a "Sync again" button. By default the plugin uses exactly the model the current session is using (including temporary switches in the composer); it only overrides when you pin one. Settings are stored in the browser's `localStorage` and never uploaded.
 
+Under the model row there is a **Test model** button: it sends one tiny call with the current selection (or the session model), shows "Connected · provider/model · Ns" on success, and prints the upstream message verbatim on failure — the quickest way to debug an unreachable route.
+
 ## WeChat Bot
 
 The settings page has two tabs: **Enhancement** and **WeChat Bot**. In the WeChat Bot tab, click "Connect WeChat bot" and confirm the login with your phone:
@@ -181,6 +183,21 @@ The settings page has two tabs: **Enhancement** and **WeChat Bot**. In the WeCha
 - "Undo" restores the draft from before the fill; with automatic fill off, a notice above the composer offers "Fill" and "Ignore".
 
 Under the hood the plugin speaks Tencent's iLink protocol directly (QR login plus a long-polling `getupdates` loop), so there is no OpenClaw or other background service involved. Known limits: the iLink session expires after roughly **24 hours** and needs a re-scan; text messages only; this is a personal-account bot channel, so use it within Tencent's terms.
+
+## Troubleshooting: `the model call did not complete`
+
+That message is the plugin's wrapper for a failed model call. Since v0.4.3 the panel also shows the upstream's **raw message**, and the settings page's **Test model** button reproduces the route on its own. Ranked by likelihood:
+
+| Likelihood | Symptom | How to verify | Fix |
+| --- | --- | --- | --- |
+| 1. Reasoning parameter rejected by the route | upstream 400: `Unsupported value: 'none'` (gateways such as noki only accept low/medium/high/xhigh/max) | look for `reasoning.effort` / `Supported values` in the upstream message; or press **Test model** | v0.4.3 retries once with a supported level (prefers `low`); if it still fails, pin "Reasoning effort" to `low` |
+| 2. Unknown model or route not enabled | upstream 404, `model_not_found` | **Test model**; or switch model in the composer | use a model that exists in the local list; check `llm-pi-ai.providers` in the profile |
+| 3. Missing or expired credentials | `MISSING_CREDENTIAL`, 401/403 | read the upstream message; check the DSH account settings | sign in again or add the API key, then restart DSH |
+| 4. Network / proxy / endpoint unreachable | `TIMEOUT` or `NETWORK` after a long wait | `curl` the provider `baseURL` directly | check proxy, `baseURL`, certificates; try another endpoint |
+| 5. Rate limit / no quota | 429, `RATE_LIMIT`, `QUOTA` | code/message in the upstream text | retry later or switch models |
+| 6. Body too large | `PAYLOAD_TOO_LARGE` (413) | is the draft over 20,000 characters? | trim the draft (1 MiB body, 20k characters per draft) |
+
+> Host-side detail worth knowing: pi-ai's `openai-responses` builder injects `reasoning.effort: "none"` when a model declares reasoning but the request carries no effort. Official gateways usually accept `none`; custom routes such as noki only accept low..max and answer 400 — this is the common reason "local GLM works but noki-GPT says the model call did not complete". v0.4.3 retries around it.
 
 ## Compatibility and design notes
 
@@ -194,7 +211,7 @@ Under the hood the plugin speaks Tencent's iLink protocol directly (QR login plu
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 105 cases
+npm test           # node --test, 123 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

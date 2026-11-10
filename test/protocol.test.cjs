@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const protocol = require('../src/protocol.cjs');
+const { normalizeEffort, normalizeModel, validateProbe } = protocol;
 
 test('protocol constants are stable', () => {
   assert.equal(protocol.PLUGIN_ID, 'dsh-prompt-craft');
@@ -124,4 +125,42 @@ test('validateRefine enforces the previous-prompt and instruction limits', () =>
   });
   assert.equal(longInstruction.ok, false);
   assert.equal(longInstruction.error.message, 'instruction is too long');
+});
+
+test('normalizeEffort forwards only supported reasoning levels', () => {
+  assert.equal(normalizeEffort('low'), 'low');
+  assert.equal(normalizeEffort(' HIGH '), 'high');
+  assert.equal(normalizeEffort('max'), 'max');
+  assert.equal(normalizeEffort('off'), '');
+  assert.equal(normalizeEffort('none'), '');
+  assert.equal(normalizeEffort('auto'), '');
+  assert.equal(normalizeEffort('weird'), '');
+  assert.equal(normalizeEffort(undefined), '');
+});
+
+test('normalizeModel drops an unsupported reasoning effort', () => {
+  assert.deepEqual(normalizeModel({ provider: 'p', model: 'm', reasoningEffort: 'none' }), {
+    provider: 'p',
+    model: 'm',
+  });
+  assert.deepEqual(normalizeModel({ provider: 'p', model: 'm', reasoningEffort: 'xhigh' }), {
+    provider: 'p',
+    model: 'm',
+    reasoningEffort: 'xhigh',
+  });
+});
+
+test('validateProbe needs a model or a session', () => {
+  const missing = validateProbe({});
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error.code, 'BAD_REQUEST');
+
+  const byModel = validateProbe({ model: { provider: 'noki', model: 'gpt-6.1-sol', reasoningEffort: 'low' } });
+  assert.equal(byModel.ok, true);
+  assert.deepEqual(byModel.value.model, { provider: 'noki', model: 'gpt-6.1-sol', reasoningEffort: 'low' });
+
+  const bySession = validateProbe({ sessionId: 's-1' });
+  assert.equal(bySession.ok, true);
+  assert.equal(bySession.value.model, null);
+  assert.equal(bySession.value.sessionId, 's-1');
 });

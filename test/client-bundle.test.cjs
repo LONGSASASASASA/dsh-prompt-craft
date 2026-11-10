@@ -552,3 +552,64 @@ test('the UI falls back to English when the browser locale is not Chinese', () =
   const button = EnhanceButton({ sessionId: 's-6', useInput: (selector) => selector({ draft: 'hi' }) });
   assert.equal(button.props['aria-label'], 'Enhance prompt');
 });
+
+test('a host error also shows the upstream message', async () => {
+  const { slots } = boot({
+    reply: () => ({
+      status: 502,
+      payload: {
+        ok: false,
+        error: {
+          code: 'LLM_FAILED',
+          message: 'the model call did not complete',
+          details: {
+            reason: 'error',
+            providerCode: 'INVALID_REQUEST',
+            providerMessage: "Unsupported value: 'none'. Supported values are: 'low', 'medium', 'high'.",
+          },
+        },
+      },
+    }),
+  });
+  const EnhanceButton = componentFor(slots, 'conversation.input.right');
+  const EnhancePanel = componentFor(slots, 'conversation.input.dock');
+
+  EnhanceButton({ sessionId: 's-8', useInput: (selector) => selector({ draft: 'hello' }) }).props.onClick();
+  await flush();
+
+  const panel = EnhancePanel({ sessionId: 's-8', inputActions: { setDraft() {} } });
+  assert.match(textOf(panel), /上游返回/);
+  assert.match(textOf(panel), /Supported values are/);
+});
+
+test('the settings section can test the model route', async () => {
+  const { calls, slots } = boot({
+    reply: () => ({
+      payload: {
+        ok: true,
+        result: {
+          provider: 'deepseek-account',
+          model: 'deepseek-v4-flash',
+          effort: '',
+          elapsedMs: 42,
+          reply: 'OK',
+        },
+      },
+    }),
+  });
+  const EnhanceButton = componentFor(slots, 'conversation.input.right');
+  EnhanceButton({ sessionId: 's-9', useInput: (selector) => selector({ draft: 'hi' }) });
+
+  const SettingsSection = componentFor(slots, 'settings.section');
+  const section = SettingsSection({});
+  const testButton = findButton(section, '测试模型');
+  assert.ok(testButton, 'the settings must offer a model test');
+
+  testButton.props.onClick();
+  await flush();
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.method, 'probe');
+  assert.equal(calls[0].body.sessionId, 's-9');
+  assert.deepEqual(calls[0].body.model, { provider: 'deepseek-account', model: 'deepseek-v4-flash' });
+});

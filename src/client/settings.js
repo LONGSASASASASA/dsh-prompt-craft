@@ -61,6 +61,7 @@ function SettingsSection(props) {
   const [draft, setDraft] = React.useState(saved);
   const [justSaved, setJustSaved] = React.useState(false);
   const [tab, setTab] = React.useState('behavior');
+  const [probe, setProbe] = React.useState({ status: 'idle', message: '' });
   const [, bumpRevision] = React.useState(0);
   const t = createTranslator(actions.currentLocale());
 
@@ -126,6 +127,63 @@ function SettingsSection(props) {
     });
   };
 
+  const runProbe = function runProbe() {
+    const explicit = customModel
+      ? {
+          provider: draft.provider.trim(),
+          model: draft.model.trim(),
+          reasoningEffort: draft.reasoningEffort.trim(),
+        }
+      : null;
+    setProbe({ status: 'testing', message: t('settings.model.testing') });
+    actions
+      .probeModel(explicit)
+      .then(function connected(result) {
+        const head = [result.provider, result.model].filter(Boolean).join('/');
+        const seconds = Math.max(1, Math.round((result.elapsedMs || 0) / 100) / 10);
+        setProbe({
+          status: 'ok',
+          message: t('settings.model.testOk', { model: head, ms: seconds }),
+        });
+      })
+      .catch(function failed(error) {
+        const detail =
+          error && error.details && typeof error.details.providerMessage === 'string'
+            ? error.details.providerMessage
+            : (error && error.message) || 'unknown';
+        setProbe({ status: 'error', message: t('settings.model.testFail', { message: detail }) });
+      });
+  };
+
+  const probeRow = function probeRow() {
+    return h(
+      'div',
+      { className: 'dpc-model-test' },
+      h(
+        'button',
+        {
+          type: 'button',
+          className: 'dpc-action',
+          'data-variant': 'ghost',
+          disabled: probe.status === 'testing',
+          onClick: runProbe,
+        },
+        probe.status === 'testing' ? h('span', { className: 'dpc-spinner' }) : h(icons.Check, { size: 13 }),
+        probe.status === 'testing' ? t('settings.model.testing') : t('settings.model.test'),
+      ),
+      probe.status !== 'idle'
+        ? h(
+            'p',
+            {
+              className:
+                'dpc-hint ' + (probe.status === 'error' ? 'dpc-probe-error' : 'dpc-probe-ok'),
+            },
+            probe.message,
+          )
+        : null,
+    );
+  };
+
   const modelPicker = function modelPicker() {
     if (modelCount === 0) {
       return h(
@@ -178,6 +236,7 @@ function SettingsSection(props) {
             },
           }),
         ),
+        probeRow(),
       );
     }
     return h(
@@ -234,6 +293,7 @@ function SettingsSection(props) {
           update({ reasoningEffort: event.target.value });
         },
       }),
+      probeRow(),
     );
   };
 
