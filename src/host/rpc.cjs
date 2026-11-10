@@ -304,12 +304,43 @@ async function callModel(llm, prompt, model, timeoutMs, extra) {
 }
 
 /**
+ * Wrap the model's unusable answer as a replayable assistant turn.
+ *
+ * DSH's `LlmRuntime.forAdapter()` reads `message.source.replayState` on every
+ * assistant message, so an assistant turn without `source` makes the whole
+ * call fail with `Cannot read properties of undefined (reading 'replayState')`.
+ * Tagging the turn with its producer keeps the repair round working.
+ * @param {string} text
+ * @param {{ provider: string, model: string }} model
+ * @returns {{ role: 'assistant', source: { kind: 'model', provider: string, model: string }, content: Array<{ type: 'text', text: string }> }}
+ */
+function assistantRepairMessage(text, model) {
+  return {
+    role: 'assistant',
+    source: { kind: 'model', provider: model.provider, model: model.model },
+    content: [{ type: 'text', text: String(text || '').slice(0, 4000) }],
+  };
+}
+
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function describeRepairError(error) {
+  const message = error && error.message ? String(error.message) : String(error);
+  return message.slice(0, 300);
+}
+
+/**
  * One model call, then a second stricter call when the answer was not JSON.
+ * The repair round is best-effort: when it cannot run at all (adapter/host
+ * failure) the caller still gets the actionable "not JSON" outcome instead of
+ * an internal TypeError from the host.
  * @param {any} llm
  * @param {{ system: string, messages: any[] }} prompt
  * @param {{ provider: string, model: string, reasoningEffort?: string }} model
  * @param {number} timeoutMs
- * @returns {Promise<{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt?: string }>}
+ * @returns {Promise<{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt?: string, details?: object }>}
  */
 async function generateResult(llm, prompt, model, timeoutMs) {
   const first = await callModelAuto(llm, prompt, model, timeoutMs);
@@ -332,13 +363,32 @@ async function generateResult(llm, prompt, model, timeoutMs) {
   }
   const repairPrompt = {
     system: prompt.system,
-    messages: prompt.messages.concat([
-      { role: 'assistant', content: [{ type: 'text', text: String(first.text || '').slice(0, 4000) }] },
-    ], buildRepairMessages()),
+    messages: prompt.messages.concat([assistantRepairMessage(first.text, model)], buildRepairMessages()),
   };
-  const second = await callModelAuto(llm, repairPrompt, model, timeoutMs);
+  let second;
+  try {
+    second = await callModelAuto(llm, repairPrompt, model, timeoutMs);
+  } catch (error) {
+    return {
+      ok: false,
+      code: ERROR_CODES.BAD_MODEL_OUTPUT,
+      message: parsed.message || 'the model did not return the expected JSON',
+      excerpt: parsed.excerpt,
+      details: { repairFailed: true, repairError: describeRepairError(error) },
+    };
+  }
   const secondFailure = finishFailure(second.finish, second.text);
   if (secondFailure) {
+    const providerMessage = (secondFailure.details && secondFailure.details.providerMessage) || '';
+    if (/Cannot read properties of undefined|is not a function|is not iterable/i.test(providerMessage)) {
+      return {
+        ok: false,
+        code: ERROR_CODES.BAD_MODEL_OUTPUT,
+        message: parsed.message || 'the model did not return the expected JSON',
+        excerpt: parsed.excerpt,
+        details: { repairFailed: true, repairError: providerMessage.slice(0, 300) },
+      };
+    }
     if (second.retry) secondFailure.details.retriedWith = second.retry;
     return { ok: false, ...secondFailure };
   }

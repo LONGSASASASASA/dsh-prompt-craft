@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.4.3",
-  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a WeChat (iLink) inbox: QR login, inbound text lands in the composer draft, and model routes that reject a \"none\" reasoning effort are retried automatically.",
+  "version": "0.4.4",
+  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a WeChat (iLink) inbox: QR login, inbound text lands in the composer draft, transparent reasoning-effort retries, and a repair round that survives host replay-state strictness.",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {

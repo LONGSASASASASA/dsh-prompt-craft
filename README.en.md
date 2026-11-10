@@ -199,6 +199,8 @@ That message is the plugin's wrapper for a failed model call. Since v0.4.3 the p
 
 > Host-side detail worth knowing: pi-ai's `openai-responses` builder injects `reasoning.effort: "none"` when a model declares reasoning but the request carries no effort. Official gateways usually accept `none`; custom routes such as noki only accept low..max and answer 400 — this is the common reason "local GLM works but noki-GPT says the model call did not complete". v0.4.3 retries around it.
 
+> Another internal error that is now fixed: when the model did not answer with JSON, the plugin adds one repair round (it replays the previous answer and asks for JSON only). Up to 0.4.3 that replay turn carried no assistant-message source marker, so the host's replay check threw and the panel showed `Upstream said: Cannot read properties of undefined (reading 'replayState')`. From 0.4.4 the repair turn carries a proper source, and if the repair call itself fails you only get "the model did not return the expected JSON" plus an excerpt — no host internals leak into the panel.
+
 ## Compatibility and design notes
 
 - The host half (`lib/host/index.cjs`) registers one `POST /dsh-prompt-craft/rpc` route and calls the model through `ctx.llm.stream()`. It rejects cross-site requests, caps bodies at 1 MiB, times out after 120 s, and parses (with one repair retry) the model's JSON output.
@@ -211,7 +213,7 @@ That message is the plugin's wrapper for a failed model call. Since v0.4.3 the p
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 123 cases
+npm test           # node --test, 126 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

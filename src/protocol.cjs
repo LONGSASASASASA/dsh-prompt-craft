@@ -12,7 +12,7 @@ const PLUGIN_ID = 'dsh-prompt-craft';
 /** Host HTTP route serving the plugin RPC. */
 const RPC_PATH = '/dsh-prompt-craft/rpc';
 /** Wire version of the plugin's own protocol. */
-const VERSION = '0.4.3';
+const VERSION = '0.4.4';
 
 /** RPC method names. */
 const METHODS = Object.freeze({

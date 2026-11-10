@@ -200,6 +200,8 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 > 已知宿主侧细节：pi-ai 的 `openai-responses` 构建器在「模型声明了 reasoning、请求又没给 effort」时会补一个 `reasoning.effort: "none"`。官方网关通常接受 `none`，但 noki 这类自定义路由只接受 low..max，于是返回 400——这就是「本地 GLM 能用、noki-GPT 报 the model call did not complete」的常见原因。插件 v0.4.3 已针对它自动重试。
 
+> 另一个已修复的内部错误：模型没返回 JSON 时，插件会补一轮「把上一条回答带上、要求只回 JSON」的修复调用；旧版本（≤0.4.3）这轮缺少助手消息的来源标记，会被宿主的 replay 校验拦下，面板里显示成 `上游返回：Cannot read properties of undefined (reading 'replayState')`。v0.4.4 起该轮带上来源标记；即使修复轮本身失败，也只会得到「模型返回的内容不是约定的 JSON」并附原文片段，不再冒出宿主内部错误。
+
 ## 兼容性与实现
 
 - 宿主半（`lib/host/index.cjs`）注册一个 `POST /dsh-prompt-craft/rpc` 路由，用 `ctx.llm.stream()` 调模型；带来源校验（拒绝跨站请求）、1 MiB 请求体上限、120s 超时、JSON 输出解析与一次修复重试。
@@ -212,7 +214,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，123 个用例
+npm test           # node --test，126 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 

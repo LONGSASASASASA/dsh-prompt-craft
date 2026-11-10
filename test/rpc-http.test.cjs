@@ -264,6 +264,61 @@ test('handler repairs a non-JSON answer with one extra call', async () => {
   assert.equal(jsonOf(res).result.prompt, 'Be concrete.');
 });
 
+test('the repair round tags its assistant turn with a producer source', async () => {
+  const llm = recordingLlm([
+    textStream('I think you should be clearer.'),
+    textStream('{"kind":"enhanced","prompt":"Be concrete."}'),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({
+      method: METHODS.ENHANCE,
+      draft: 'be clearer',
+      model: { provider: 'noki', model: 'gpt-6.1-sol' },
+    }),
+  });
+  assert.equal(res.statusCode, 200);
+  const assistant = llm.seen[1].messages.find((message) => message.role === 'assistant');
+  assert.ok(assistant, 'the repair request keeps the previous answer as an assistant turn');
+  assert.deepEqual(assistant.source, {
+    kind: 'model',
+    provider: llm.seen[0].provider,
+    model: llm.seen[0].model,
+  });
+});
+
+test('a repair round that cannot dispatch degrades to BAD_MODEL_OUTPUT', async () => {
+  const llm = {
+    calls: 0,
+    stream() {
+      this.calls += 1;
+      if (this.calls === 1) return textStream('plain prose, no json').stream();
+      throw new TypeError("Cannot read properties of undefined (reading 'replayState')");
+    },
+  };
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.code, 'BAD_MODEL_OUTPUT');
+  assert.equal(payload.error.details.repairFailed, true);
+  assert.match(payload.error.details.repairError, /replayState/);
+});
+
+test('an internal adapter failure during repair is reported as BAD_MODEL_OUTPUT', async () => {
+  const llm = sequencedLlm([
+    textStream('plain prose, no json'),
+    errorStream('INTERNAL', "Cannot read properties of undefined (reading 'replayState')"),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.code, 'BAD_MODEL_OUTPUT');
+  assert.equal(payload.error.details.repairFailed, true);
+});
+
 test('handler returns 502 when both answers are unusable', async () => {
   const llm = sequencedLlm([textStream('nope'), textStream('still nope')]);
   const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
