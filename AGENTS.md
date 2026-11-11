@@ -26,7 +26,7 @@ fill-only). Published: https://github.com/LONGSASASASASA/dsh-prompt-craft
 
 - src/host/context.cjs reads the live session (ctx.sessions.get(id), host ids are
   session-<uuid>) and projects deriveMessages() into at most 6 text messages
-  (700 chars each, 3000 total). esolveSession also accepts a bare uuid because
+  (700 chars each, 3000 total). `resolveSession` also accepts a bare uuid because
   some client surfaces expose that.
 - The context is fenced and demoted to untrusted background in
   src/host/templates.cjs; it must never be copied into the result.
