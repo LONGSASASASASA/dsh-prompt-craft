@@ -22,12 +22,24 @@ fill-only). Published: https://github.com/LONGSASASASASA/dsh-prompt-craft
   (`conversation.input.right` order 10, `conversation.input.dock` panel order
   20 / weixin notice order 12, `settings.section` order 40).
 
+## Recent conversation as context (0.4.5)
+
+- src/host/context.cjs reads the live session (ctx.sessions.get(id), host ids are
+  session-<uuid>) and projects deriveMessages() into at most 6 text messages
+  (700 chars each, 3000 total). esolveSession also accepts a bare uuid because
+  some client surfaces expose that.
+- The context is fenced and demoted to untrusted background in
+  src/host/templates.cjs; it must never be copied into the result.
+- Best-effort: any failure returns []; the enhancement proceeds unchanged.
+- Client toggle: Settings → 附带对话上下文 (includeContext, default on); the request
+  carries withContext, and meta.contextMessages reports how many travelled.
+
 ## Build and test
 
 ```sh
 npm run build   # esbuild: src/client/index.js -> lib/client.js (ModuleLoader wrapper), copies src/host + protocol
 npm run check   # byte-compares lib/ with src/ (fails on drift)
-node --test "test/**/*.test.cjs"   # 112 tests; a directory argument fails on Node 24
+node --test "test/**/*.test.cjs"   # 138 tests; a directory argument fails on Node 24
 ```
 
 `lib/` is committed on purpose so `github:` installs work without a build step.
