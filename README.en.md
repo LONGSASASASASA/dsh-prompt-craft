@@ -88,6 +88,7 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🎯 **Visible goal and elevation** — the panel shows the goal the rewrite serves and what the aim was raised from and to.
 - 🎚 **Three intensities** — Light (tidy wording, state the goal) / Goal-first (rewrite around the outcome you want) / Elevated (outcome, success criteria, boundaries and trade-offs in one brief).
 - 🧭 **Automatic scenario detection** — code / writing / research / agent / general, or pick one manually.
+- 📎 **Recent conversation as context** — the last few messages are sent along as background (on by default, can be turned off in settings) so the rewrite knows what you are working on; the context is only read for understanding and never copied into the result.
 - 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a compare view (default) or sections view, apply-all, and undo.
 - ✂️ **Terse output** — compress the character count without dropping a requirement; Chinese may use a compact classical register (须 / 勿 / 免 / four-character phrases) but readability comes first, and a one-line draft gets a hard length cap.
 - 🪟 **Same width as the composer** — the panel shares the composer's left and right edges, with a light blue gradient outline that stays clear in light and dark themes.
@@ -129,7 +130,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.5
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -167,6 +168,7 @@ The settings page lives in DSH's plugin settings ("Prompt enhancement" section).
 | UI language | Follow the DSH UI (default) / Chinese / English — decides the plugin's own copy |
 | Default intensity | Light / Goal-first / Elevated (switchable in the panel) |
 | Default scenario | Auto / Code / Writing / Research / Agent / General |
+| Recent conversation as context | On by default: up to 6 recent messages (700 characters each, 3000 total) are sent as background, for understanding only and never copied into the result; when off, no history leaves the composer |
 | Model for enhancement | Follow the current session by default; pick "Pin a model" to choose from the models synced from this machine (grouped by provider), or fill in provider / model / reasoning effort manually |
 
 Where the models come from: the plugin syncs providers and models from the current session's model directory (open any conversation once and the list appears); the page shows "Synced N available models from this machine". When nothing can be synced it keeps manual entry as a fallback plus a "Sync again" button. By default the plugin uses exactly the model the current session is using (including temporary switches in the composer); it only overrides when you pin one. Settings are stored in the browser's `localStorage` and never uploaded.
@@ -213,7 +215,7 @@ That message is the plugin's wrapper for a failed model call. Since v0.4.3 the p
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 126 cases
+npm test           # node --test, 138 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 
@@ -234,6 +236,7 @@ src/client/{button,panel,actions,store,rpc,i18n,styles,settings,diff}.js
 
 - No telemetry. Apart from the DSH host's local route, the plugin talks to Tencent iLink only after you connect the WeChat bot (QR login and the long poll that receives messages).
 - The draft is forwarded to the model service you configured in DSH, and only when you click ✨.
+- With "Recent conversation as context" on (the default), the last few messages are sent with the draft to the same model service — up to 6 messages / 3000 characters, and you can turn it off in settings; when off, no history is sent.
 - Settings live in `localStorage`; nothing else is written to disk.
 
 ## License

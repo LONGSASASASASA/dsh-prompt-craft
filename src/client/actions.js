@@ -381,6 +381,7 @@ async function enhance(sessionId, draft, overrides) {
         sessionId: String(sessionId || ''),
         locale: currentLocale(),
         model: modelOverride() || modelHintFor(sessionId),
+        withContext: settings.includeContext !== false,
       },
       { signal: controller ? controller.signal : undefined },
     );
@@ -456,6 +457,7 @@ async function refine(sessionId, instruction) {
         sessionId: String(sessionId || ''),
         locale: currentLocale(),
         model: modelOverride() || modelHintFor(sessionId),
+        withContext: settings.includeContext !== false,
       },
       { signal: controller ? controller.signal : undefined },
     );

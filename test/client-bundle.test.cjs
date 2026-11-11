@@ -366,6 +366,7 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.equal(calls[0].body.scenario, 'auto');
   assert.equal(calls[0].body.locale, 'zh');
   assert.deepEqual(calls[0].body.model, { provider: 'deepseek-account', model: 'deepseek-v4-flash' });
+  assert.equal(calls[0].body.withContext, true);
 
   const panel = EnhancePanel({ sessionId: 'session-1', inputActions });
   assert.equal(panel.type, 'div');
@@ -612,4 +613,22 @@ test('the settings section can test the model route', async () => {
   assert.equal(calls[0].body.method, 'probe');
   assert.equal(calls[0].body.sessionId, 's-9');
   assert.deepEqual(calls[0].body.model, { provider: 'deepseek-account', model: 'deepseek-v4-flash' });
+});
+
+test('turning conversation context off in settings removes it from later requests', async () => {
+  const storage = createStorage();
+  storage.setItem('dsh-prompt-craft/settings/v1', JSON.stringify({ includeContext: false }));
+  const { calls, slots } = boot({ storage });
+  const EnhanceButton = componentFor(slots, 'conversation.input.right');
+  const button = EnhanceButton({
+    sessionId: 'session-1',
+    useInput: (selector) => selector({ draft: 'write a poem about the sea' }),
+  });
+
+  button.props.onClick();
+  await flush();
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.method, 'enhance');
+  assert.equal(calls[0].body.withContext, false);
 });

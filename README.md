@@ -88,6 +88,7 @@
 - 🎯 **目标与立意可见**：面板显示「真正的目标」和「立意升维」说明，改写逻辑透明。
 - 🎚 **三档力度**：轻改（理顺表达、把目标说清楚）/ 目标导向（围绕真正想要的结果重写）/ 立意升维（目标、成功标准、边界与取舍一次写全）。
 - 🧭 **自动场景识别**：自动判断代码 / 写作 / 调研 / Agent / 通用，也可手动指定。
+- 📎 **附带对话上下文**：增强时自动把最近几条对话作为「背景」发给模型（默认开启，可在设置里关），让它知道你在做什么，目标与立意更贴合上下文；上下文只用于理解，不会写进结果。
 - 🧩 **diff 预览 + 分段接受**：逐 hunk 勾选、对比视图（默认）/ 分段视图、全部应用、撤销。
 - ✂️ **精炼输出**：不丢要求的前提下压缩字数，中文可带文言式紧凑（须 / 勿 / 免 / 四字短语），但以可读为先；单行草稿有字数上限。
 - 🪟 **与输入框等宽**：面板左右边缘与输入框对齐，外圈浅蓝渐变描边，深浅色主题下都清晰。
@@ -129,7 +130,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.0
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.5
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -168,6 +169,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 | 界面语言 | 跟随 DSH 界面（默认）/ 中文 / English；决定插件自己的文案语言 |
 | 默认力度 | 轻改 / 目标导向 / 立意升维（面板里可临时切换） |
 | 默认场景 | 自动识别 / 代码 / 写作 / 调研 / Agent / 通用 |
+| 附带对话上下文 | 默认开启：把最近几条对话（最多 6 条、每条 700 字、总计 3000 字）作为背景发给模型，只用于理解，不会写进结果；关掉后请求里不带任何历史 |
 | 增强使用的模型 | 默认跟随当前会话；点「指定模型」后，可从本机已同步的模型里按 provider 分组点选，也可以手填 provider / model / 思考强度 |
 
 模型从哪来：插件从你当前会话的模型目录里同步 provider 与模型（打开过一次对话即可），设置页会显示「已从本机同步 N 个可用模型」；同步不到时保留手动填写作为兜底，并提供「重新同步」。模型策略默认完全跟随当前会话（含会话里临时切换的模型），只有你显式指定时才覆盖。设置保存在本机浏览器 `localStorage`，不上传。
@@ -214,7 +216,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，126 个用例
+npm test           # node --test，138 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 
@@ -235,6 +237,7 @@ src/client/{button,panel,actions,store,rpc,i18n,styles,settings,diff}.js
 
 - 插件不发送任何遥测；除 DSH 宿主自身的本机路由外，只有在你连接微信 Bot 后才与腾讯 iLink 服务器通信（扫码登录与长轮询收消息）。
 - 草稿只在你点击 ✨ 时经本机 DSH 宿主转发给你在 DSH 里配置的模型服务。
+- 开启「附带对话上下文」时，最近几条对话会随草稿一起发给同一个模型服务（默认开启、最多 6 条 / 3000 字，可在设置里关闭）；关闭后请求里不带任何历史。
 - 设置存在浏览器 `localStorage`，不写入磁盘其他位置。
 
 ## License

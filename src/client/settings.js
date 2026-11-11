@@ -401,6 +401,22 @@ function SettingsSection(props) {
           },
         }),
       ),
+      row(
+        'context',
+        'settings.context',
+        'settings.context.desc',
+        h(Chips, {
+          name: t('settings.context'),
+          value: draft.includeContext ? 'on' : 'off',
+          options: [
+            ['on', t('settings.context.on')],
+            ['off', t('settings.context.off')],
+          ],
+          onChange: function onChangeContext(value) {
+            update({ includeContext: value === 'on' });
+          },
+        }),
+      ),
       h('div', { className: 'dpc-section-head' }, t('settings.section.model')),
       row(
         'model',

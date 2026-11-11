@@ -164,3 +164,51 @@ test('validateProbe needs a model or a session', () => {
   assert.equal(bySession.value.model, null);
   assert.equal(bySession.value.sessionId, 's-1');
 });
+
+test('normalizeContext keeps only recent, text-only, bounded history', () => {
+  assert.deepEqual(protocol.normalizeContext('nope'), []);
+  assert.deepEqual(protocol.normalizeContext([{ role: 'system', text: 'ignored' }]), []);
+
+  const cleaned = protocol.normalizeContext([
+    { role: 'system', text: 'prompt' },
+    { role: 'tool', text: 'result' },
+    { role: 'user', text: '  这 是 用户 说的话  ' },
+    { role: 'assistant', content: 'not text role' },
+    { role: 'assistant', text: 'reply' },
+  ]);
+  assert.deepEqual(cleaned, [
+    { role: 'user', text: '这 是 用户 说的话' },
+    { role: 'assistant', text: 'reply' },
+  ]);
+
+  const clipped = protocol.normalizeContext([{ role: 'user', text: 'x'.repeat(5000) }]);
+  assert.equal(clipped[0].text.length, protocol.LIMITS.MAX_CONTEXT_MESSAGE_CHARS);
+
+  const many = Array.from({ length: 10 }, (_, index) => ({ role: 'user', text: 'm' + index }));
+  assert.deepEqual(
+    protocol.normalizeContext(many).map((message) => message.text),
+    ['m4', 'm5', 'm6', 'm7', 'm8', 'm9'],
+  );
+
+  const huge = Array.from({ length: 6 }, () => ({
+    role: 'user',
+    text: 'y'.repeat(protocol.LIMITS.MAX_CONTEXT_MESSAGE_CHARS),
+  }));
+  const trimmed = protocol.normalizeContext(huge);
+  const total = trimmed.reduce((sum, message) => sum + message.text.length, 0);
+  assert.ok(total <= protocol.LIMITS.MAX_CONTEXT_CHARS);
+  assert.ok(trimmed.length < huge.length);
+});
+
+test('validateEnhance and validateRefine send context by default and honour an opt-out', () => {
+  const defaults = protocol.validateEnhance({ draft: 'hi' });
+  assert.equal(defaults.ok, true);
+  assert.equal(defaults.value.withContext, true);
+
+  const off = protocol.validateEnhance({ draft: 'hi', withContext: false });
+  assert.equal(off.value.withContext, false);
+
+  const refine = protocol.validateRefine({ draft: 'hi', instruction: 'shorter' });
+  assert.equal(refine.ok, true);
+  assert.equal(refine.value.withContext, true);
+});
