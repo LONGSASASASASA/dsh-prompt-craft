@@ -183,3 +183,14 @@ test('recent conversation is fenced and explicitly demoted to background', () =>
   });
   assert.match(refine.messages[0].content[0].text, /User: 背景：构建太慢/);
 });
+
+test('the schema teaches JSON validity and the budget retry reminder exists', () => {
+  const { buildSystem, buildTruncationReminder, OUTPUT_SCHEMA } = templates;
+  const system = buildSystem({ mode: 'standard', scenario: 'general', locale: 'zh' });
+  assert.ok(system.includes('Emit the JSON correctly'));
+  assert.ok(system.includes('Stay inside the output budget'));
+  assert.ok(OUTPUT_SCHEMA.includes('valid JSON'));
+  const reminder = buildTruncationReminder();
+  assert.equal(reminder.role, 'user');
+  assert.ok(reminder.content[0].text.includes('output length limit'));
+});

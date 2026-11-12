@@ -130,7 +130,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.5
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.6
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -203,6 +203,19 @@ That message is the plugin's wrapper for a failed model call. Since v0.4.3 the p
 
 > Another internal error that is now fixed: when the model did not answer with JSON, the plugin adds one repair round (it replays the previous answer and asks for JSON only). Up to 0.4.3 that replay turn carried no assistant-message source marker, so the host's replay check threw and the panel showed `Upstream said: Cannot read properties of undefined (reading 'replayState')`. From 0.4.4 the repair turn carries a proper source, and if the repair call itself fails you only get "the model did not return the expected JSON" plus an excerpt — no host internals leak into the panel.
 
+## Troubleshooting: `the model did not return the expected JSON`
+
+That message is the plugin's parse failure (`BAD_MODEL_OUTPUT`). It has exactly two causes: **the model ran out of output budget before finishing the JSON (truncation)**, or **neither of its two answers was parsable JSON (format not followed)**. Since v0.4.6 the panel tells them apart and shows the model's own excerpt:
+
+| Likelihood | How to tell | How to verify | Fix |
+| --- | --- | --- | --- |
+| 1. Truncated answer (most common with reasoning effort on) | the model spends tokens thinking, then the JSON stops mid-string; `finish.kind === 'max-tokens'`; the panel says the output was cut off | the panel labels it **"model output was cut off"** and prints the excerpt; the same draft succeeds after lowering the reasoning effort | v0.4.6 doubles the budget and retries once (8,000→16,000 for low/medium, 16,000→32,000 for high/max, capped at 32,768) before failing. Day to day: use Light / Goal-first, shorten the draft, or lower reasoning effort |
+| 2. Format not followed | the first answer is not JSON and it was not truncated; the v0.4.6 parser tries every `{...}` candidate and repairs raw control characters, trailing commas, fences with surrounding prose | the **Model output excerpt** line shows the raw text | the plugin already repairs and re-asks once; if it still fails the model insists on non-JSON output — switch model or route |
+| 3. Valid JSON but the prompt is too long | the parse succeeds but `prompt` exceeds 30,000 characters | unexpected output length | shorten the draft or lower intensity |
+| 4. Request-parameter problems (temperature / effort / model name) | not this error — that surfaces as `the model call did not complete` plus an upstream 400, see the previous section | read the upstream message | see above |
+
+> Call-side limits and guidance (v0.4.6): `temperature` is fixed at 0.4; the output budget scales with reasoning effort — no effort 4,096, low/medium/minimal 8,000, high/xhigh/max 16,000 — and a truncated answer is retried once at double the budget (capped at 32,768). Two hard rules were added to the system prompt: the JSON must be byte-exact (newlines as `\n`, quotes as `\"`, no raw control characters, no fences or commentary) and the answer must be the shortest complete one that fits the budget. Failure responses now carry `truncated` / `finish` / `textChars` / `excerpt` for diagnosis.
+
 ## Compatibility and design notes
 
 - The host half (`lib/host/index.cjs`) registers one `POST /dsh-prompt-craft/rpc` route and calls the model through `ctx.llm.stream()`. It rejects cross-site requests, caps bodies at 1 MiB, times out after 120 s, and parses (with one repair retry) the model's JSON output.
@@ -215,7 +228,7 @@ That message is the plugin's wrapper for a failed model call. Since v0.4.3 the p
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 138 cases
+npm test           # node --test, 148 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

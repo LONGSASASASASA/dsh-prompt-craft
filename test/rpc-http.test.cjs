@@ -640,3 +640,55 @@ test('a failing context read never fails the enhancement', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(jsonOf(res).meta.contextMessages, 0);
 });
+
+test('handler retries a truncated answer with a doubled output budget', async () => {
+  const llm = recordingLlm([
+    textStream('{"kind":"enhanced","prompt":"half', { kind: 'max-tokens' }),
+    textStream(ENHANCED),
+  ]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(llm.calls, 2);
+  assert.equal(llm.seen[0].maxTokens, 4096);
+  assert.equal(llm.seen[1].maxTokens, 8192);
+  assert.deepEqual(payload.meta.retriedWith, { budget: '8192' });
+});
+
+test('handler scales the truncation retry with the reasoning effort', async () => {
+  const llm = recordingLlm([
+    textStream('{"kind":"enhanced","prompt":"half', { kind: 'max-tokens' }),
+    textStream('{"kind":"enhanced","prompt":"still cut', { kind: 'max-tokens' }),
+  ]);
+  const { res } = await invoke(
+    handlerWith({
+      getLlm: () => llm,
+      resolveModelFn: () => ({ provider: 'zai-coding-cn', model: 'glm-5.3', reasoningEffort: 'max', source: 'request' }),
+    }),
+    { body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }) },
+  );
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.code, 'BAD_MODEL_OUTPUT');
+  assert.equal(payload.error.details.truncated, true);
+  assert.equal(payload.error.details.budget, 16000);
+  assert.equal(payload.error.details.attemptedBudget, 32000);
+  assert.equal(payload.error.details.finish, 'max-tokens');
+  assert.equal(llm.seen[1].maxTokens, 32000);
+  assert.equal(llm.seen[1].reasoningEffort, 'max');
+});
+
+test('handler reports the model excerpt when the second answer is still not JSON', async () => {
+  const llm = recordingLlm([textStream('plain words, no json'), textStream('still plain words')]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm }), {
+    body: JSON.stringify({ method: METHODS.ENHANCE, draft: 'x' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.code, 'BAD_MODEL_OUTPUT');
+  assert.equal(payload.error.details.attemptedRepair, true);
+  assert.equal(payload.error.details.finish, 'stop');
+  assert.ok(payload.error.details.textChars > 0);
+});

@@ -39,7 +39,7 @@ fill-only). Published: https://github.com/LONGSASASASASA/dsh-prompt-craft
 ```sh
 npm run build   # esbuild: src/client/index.js -> lib/client.js (ModuleLoader wrapper), copies src/host + protocol
 npm run check   # byte-compares lib/ with src/ (fails on drift)
-node --test "test/**/*.test.cjs"   # 138 tests; a directory argument fails on Node 24
+node --test "test/**/*.test.cjs"   # 148 tests; a directory argument fails on Node 24
 ```
 
 `lib/` is committed on purpose so `github:` installs work without a build step.

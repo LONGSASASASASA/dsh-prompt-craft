@@ -632,3 +632,35 @@ test('turning conversation context off in settings removes it from later request
   assert.equal(calls[0].body.method, 'enhance');
   assert.equal(calls[0].body.withContext, false);
 });
+
+test('a truncated answer is explained and its excerpt is shown', async () => {
+  const { slots } = boot({
+    reply: () => ({
+      status: 502,
+      payload: {
+        ok: false,
+        error: {
+          code: 'BAD_MODEL_OUTPUT',
+          message: 'the model output was truncated before the JSON was complete',
+          details: {
+            truncated: true,
+            finish: 'max-tokens',
+            budget: 16000,
+            attemptedBudget: 32000,
+            excerpt: '{"kind":"enhanced","prompt":"half a sent',
+          },
+        },
+      },
+    }),
+  });
+  const EnhanceButton = componentFor(slots, 'conversation.input.right');
+  const EnhancePanel = componentFor(slots, 'conversation.input.dock');
+
+  EnhanceButton({ sessionId: 's-12', useInput: (selector) => selector({ draft: 'hello' }) }).props.onClick();
+  await flush();
+
+  const panel = EnhancePanel({ sessionId: 's-12', inputActions: { setDraft() {} } });
+  assert.match(textOf(panel), /模型输出被截断/);
+  assert.match(textOf(panel), /模型输出片段/);
+  assert.match(textOf(panel), /half a sent/);
+});

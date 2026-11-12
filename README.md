@@ -130,7 +130,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.5
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.6
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -204,6 +204,19 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 
 > 另一个已修复的内部错误：模型没返回 JSON 时，插件会补一轮「把上一条回答带上、要求只回 JSON」的修复调用；旧版本（≤0.4.3）这轮缺少助手消息的来源标记，会被宿主的 replay 校验拦下，面板里显示成 `上游返回：Cannot read properties of undefined (reading 'replayState')`。v0.4.4 起该轮带上来源标记；即使修复轮本身失败，也只会得到「模型返回的内容不是约定的 JSON」并附原文片段，不再冒出宿主内部错误。
 
+## 报错排查：`模型返回的内容不是约定的 JSON。`
+
+这条提示来自插件对模型输出的解析（错误码 `BAD_MODEL_OUTPUT`）。判定依据只有两种：**模型在输出预算内没写完 JSON（截断）**，或者**两次回答都不是可解析的 JSON（不遵循格式）**。v0.4.6 起面板会区分这两类，并把模型输出片段一起显示出来：
+
+| 可能性 | 判定依据 | 怎么验证 | 怎么修 |
+| --- | --- | --- | --- |
+| 1. 输出被截断（开了思考强度时最常见） | 模型先花掉思考 token，JSON 写到一半就停；`finish.kind === 'max-tokens'`，面板显示「模型输出被截断」 | 面板直接给出「模型输出被截断」+ 原文片段；把「思考强度」调低后用同一草稿重试 | v0.4.6 会先把预算翻倍重试一次（低/中档 8000→16000，高档 16000→32000，封顶 32768）；仍失败才报错。日常建议：力度用「轻改 / 目标导向」、缩短草稿，或降低思考强度 |
+| 2. 模型没按格式输出 | 首答不是 JSON，且不是截断；v0.4.6 的解析器会尝试所有 `{...}` 候选并做机械修复（裸换行/制表符、尾逗号、围栏内外说明） | 面板「模型输出片段」里能看到原文 | 插件已自动修复 + 再修复一轮；仍失败通常是模型坚持不按 JSON 输出，换模型或换一条路由 |
+| 3. JSON 合法但 prompt 超长 | 解析成功但 `prompt` 超过 30000 字 | 结果长度异常 | 缩短草稿或降低力度 |
+| 4. 请求参数问题（temperature / effort / 模型名） | 这类不是本条错误，而是 `the model call did not complete` + 上游 400，见上一节 | 看「上游返回」 | 见上一节 |
+
+> 调用侧的限制与指引（v0.4.6）：`temperature` 固定 0.4；输出预算按思考强度分级——无 effort 4096、low/medium/minimal 8000、high/xhigh/max 16000；截断时自动翻倍重试一次（上限 32768）。系统提示新增两条硬约束：JSON 必须逐字节合法（字符串内换行写 `\n`、引号写 `\"`、禁裸控制字符、禁围栏与前后说明），以及预算内写最短完整答案。失败响应现在带 `truncated` / `finish` / `textChars` / `excerpt`，便于定位。
+
 ## 兼容性与实现
 
 - 宿主半（`lib/host/index.cjs`）注册一个 `POST /dsh-prompt-craft/rpc` 路由，用 `ctx.llm.stream()` 调模型；带来源校验（拒绝跨站请求）、1 MiB 请求体上限、120s 超时、JSON 输出解析与一次修复重试。
@@ -216,7 +229,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，138 个用例
+npm test           # node --test，148 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 

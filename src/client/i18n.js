@@ -66,6 +66,8 @@ const ZH = {
 
   'error.title': '增强失败',
   'error.badOutput': '模型返回的内容不是约定的 JSON。',
+  'error.truncated': '模型输出被截断（思考占用了输出预算或到达长度上限），已自动加大预算重试仍未成功。可把力度调低、缩短草稿，或在设置里换一个模型 / 降低思考强度。',
+  'error.excerpt': '模型输出片段',
   'error.model': '没有解析到当前会话的模型，请在输入框选择模型，或到设置里指定。',
   'error.providerDetail': '上游返回',
   'error.timeout': '请求超时，请稍后重试。',
@@ -205,6 +207,8 @@ const EN = {
 
   'error.title': 'Enhancement failed',
   'error.badOutput': 'The model did not return the expected JSON.',
+  'error.truncated': 'The model output was cut off (thinking used up the output budget or the length limit was hit), and the automatic higher-budget retry did not fix it. Lower the intensity, shorten the draft, or pick another model / reasoning effort in settings.',
+  'error.excerpt': 'Model output excerpt',
   'error.model': 'No model could be resolved. Pick one in the composer or set it in settings.',
   'error.providerDetail': 'Upstream said',
   'error.timeout': 'The request timed out. Please retry.',

@@ -36,7 +36,10 @@ function metaLabel(meta) {
  */
 function errorText(t, error) {
   if (!error) return '';
-  if (error.code === 'BAD_MODEL_OUTPUT') return t('error.badOutput');
+  if (error.code === 'BAD_MODEL_OUTPUT') {
+    if (error.details && error.details.truncated) return t('error.truncated');
+    return t('error.badOutput');
+  }
   if (error.code === 'MODEL_UNRESOLVED') return t('error.model');
   if (error.code === 'TIMEOUT') return t('error.timeout');
   if (error.code === 'NETWORK') return t('error.network');
@@ -235,6 +238,11 @@ function EnhancePanel(props) {
   const providerMessage = state.error && state.error.details && typeof state.error.details.providerMessage === 'string'
     ? state.error.details.providerMessage
     : '';
+  const excerpt = state.error && state.error.details && typeof state.error.details.excerpt === 'string'
+    ? state.error.details.excerpt
+    : state.error && typeof state.error.excerpt === 'string'
+      ? state.error.excerpt
+      : '';
 
   const errorBlock = state.status === 'error' && state.error
     ? h(
@@ -252,6 +260,13 @@ function EnhancePanel(props) {
               'p',
               { className: 'dpc-hint dpc-upstream' },
               t('error.providerDetail') + '：' + providerMessage,
+            )
+          : null,
+        excerpt
+          ? h(
+              'p',
+              { className: 'dpc-hint dpc-upstream' },
+              t('error.excerpt') + '：' + excerpt,
             )
           : null,
         h(

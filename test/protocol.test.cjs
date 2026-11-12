@@ -45,10 +45,17 @@ test('normalizeModel requires provider and model', () => {
   assert.equal(protocol.normalizeModel(null), null);
 });
 
-test('tokenBudgetFor picks the reasoning budget', () => {
+test('tokenBudgetFor grows with reasoning intensity', () => {
   assert.equal(protocol.tokenBudgetFor(undefined), 4096);
   assert.equal(protocol.tokenBudgetFor(''), 4096);
-  assert.equal(protocol.tokenBudgetFor('max'), 8000);
+  assert.equal(protocol.tokenBudgetFor('off'), 4096);
+  assert.equal(protocol.tokenBudgetFor('minimal'), 8000);
+  assert.equal(protocol.tokenBudgetFor('low'), 8000);
+  assert.equal(protocol.tokenBudgetFor('medium'), 8000);
+  assert.equal(protocol.tokenBudgetFor('high'), 16000);
+  assert.equal(protocol.tokenBudgetFor('xhigh'), 16000);
+  assert.equal(protocol.tokenBudgetFor('max'), 16000);
+  assert.equal(protocol.tokenBudgetFor('nonsense'), 4096);
 });
 
 test('validateEnhance accepts a normal body', () => {

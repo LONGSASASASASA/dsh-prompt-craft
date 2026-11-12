@@ -26,6 +26,8 @@ const BASE_RULES = [
   'Cut every word that would not change what a capable model does. If a requirement fits in a four-character phrase, use the phrase instead of a sentence. Check the length before returning: count characters in the draft and in your prompt; if the prompt is not shorter while keeping all content, tighten it again, and record the compression as one short note.',
   'The prompt field must be directly usable as a prompt: plain text, no surrounding quotation marks, and no markdown code fence unless the draft itself contained a code fence.',
   'Return exactly one JSON object. No markdown fences, no prose before or after it.',
+  'Emit the JSON correctly, byte for byte. The prompt field is a single-line JSON string: write every line break as \\n and every double quote as \\". Never put a raw newline, tab or other control character inside a string, never leave a trailing comma, and never wrap the object in a code fence or add commentary around it. If the answer does not fit, shorten the text; never truncate the JSON.',
+  'Stay inside the output budget. Reasoning tokens spend part of it before the answer starts, so write the shortest complete answer: the JSON object with the required fields and nothing else. When the budget is tight, compress the prompt further instead of writing past the limit.',
 ].join('\n');
 
 /** Mode-specific editing instructions. */
@@ -65,8 +67,26 @@ const OUTPUT_SCHEMA = [
   '{"kind":"enhanced","goal":"<one sentence: the outcome this prompt is meant to produce, in the user\'s language>","prompt":"<the rewritten prompt>","scenario":"code|writing|research|agent|general","summary":"<one sentence in the user\'s language: how the rewrite serves that goal>","elevation":["<from X to Y: how the aim was raised>","..."],"notes":["<short change note>","..."]}',
   '{"kind":"questions","questions":["<question 1>","<question 2>"],"summary":"<one sentence in the user\'s language>"}',
   'Notes: at most 4, each under 120 characters. Elevation: at most 3, each under 160 characters. Questions: at most 2, each under 200 characters, specific and answerable in one line.',
+  'The whole answer must be valid JSON: no smart quotes, no unescaped newlines inside strings (use \\n), no trailing commas, no code fences, and no text before or after the object. An answer that is cut off, fenced, or wrapped in prose is unusable.',
   'Use the questions shape only when the draft is missing information that would materially change the rewrite. Otherwise use the enhanced shape, even if the draft is already decent.',
 ].join('\n');
+
+/**
+ * Reminder used when the first attempt ran out of output budget: the model
+ * spent its tokens on thinking (or prose) and the JSON was cut mid-string.
+ * @returns {{ role: 'user', content: Array<{ type: 'text', text: string }> }}
+ */
+function buildTruncationReminder() {
+  return {
+    role: 'user',
+    content: [
+      {
+        type: 'text',
+        text: 'Your previous answer was cut off by the output length limit. Reply again with the complete JSON object only: no prose, no code fences, and keep the prompt field as short as possible while keeping every requirement.',
+      },
+    ],
+  };
+}
 
 /**
  * @param {string} locale
@@ -287,6 +307,7 @@ module.exports = {
   buildRefinePrompt,
   buildProbePrompt,
   buildRepairMessages,
+  buildTruncationReminder,
   clampNotes,
   clampElevation,
   clampQuestions,

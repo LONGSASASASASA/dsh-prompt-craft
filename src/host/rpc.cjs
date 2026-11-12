@@ -16,6 +16,7 @@ const {
   LIMITS,
   ERROR_CODES,
   REASONING_EFFORTS,
+  TOKEN_BUDGET,
   validateEnhance,
   validateRefine,
   validateProbe,
@@ -27,6 +28,7 @@ const {
   buildRefinePrompt,
   buildProbePrompt,
   buildRepairMessages,
+  buildTruncationReminder,
 } = require('./templates.cjs');
 const { parseModelOutput } = require('./parse-output.cjs');
 const { resolveModel } = require('./resolve-model.cjs');
@@ -265,14 +267,18 @@ function planRetry(model, finish) {
  * One call, plus the transparent retry described in {@link planRetry}.
  * @returns {Promise<{ text: string, finish?: any, effort: string, retry?: Record<string, string> }>}
  */
-async function callModelAuto(llm, prompt, model, timeoutMs) {
-  const first = await callModel(llm, prompt, model, timeoutMs);
+async function callModelAuto(llm, prompt, model, timeoutMs, extra) {
+  const first = await callModel(llm, prompt, model, timeoutMs, extra);
   if (!first.finish || first.finish.kind !== 'error') return first;
   const retry = planRetry(model, first.finish);
   if (!retry) return first;
-  const second = await callModel(llm, prompt, retry.model, timeoutMs, {
-    dropTemperature: retry.dropTemperature,
-  });
+  const second = await callModel(
+    llm,
+    prompt,
+    retry.model,
+    timeoutMs,
+    Object.assign({}, extra, { dropTemperature: retry.dropTemperature }),
+  );
   second.retry = retry.note;
   return second;
 }
@@ -286,12 +292,13 @@ async function callModelAuto(llm, prompt, model, timeoutMs) {
  */
 async function callModel(llm, prompt, model, timeoutMs, extra) {
   const omitTemperature = !!(extra && extra.dropTemperature);
+  const budget = extra && Number.isFinite(extra.budget) ? extra.budget : tokenBudgetFor(model.reasoningEffort);
   const options = {
     provider: model.provider,
     model: model.model,
     system: prompt.system,
     messages: prompt.messages,
-    maxTokens: tokenBudgetFor(model.reasoningEffort),
+    maxTokens: budget,
   };
   if (!omitTemperature) options.temperature = TEMPERATURE;
   if (model.reasoningEffort) options.reasoningEffort = model.reasoningEffort;
@@ -333,6 +340,61 @@ function describeRepairError(error) {
 }
 
 /**
+ * The first answer ran out of output budget mid-JSON. Reasoning models spend
+ * tokens before they write, so give them one retry with a doubled ceiling and
+ * an explicit "complete JSON only" reminder. If it still fails, report the
+ * truncation as truncation — never as a generic "not JSON" — so the caller can
+ * tell "the model ran out of room" apart from "the model ignored the format".
+ * @param {any} llm
+ * @param {{ system: string, messages: any[] }} prompt
+ * @param {{ provider: string, model: string, reasoningEffort?: string }} model
+ * @param {number} timeoutMs
+ * @param {{ text: string, finish?: any, retry?: Record<string, string> }} first
+ * @param {{ excerpt?: string }} parsed
+ * @returns {Promise<{ ok: true, result: object, retried?: object } | { ok: false, code: string, message: string, excerpt?: string, details: object }>}
+ */
+async function retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed) {
+  const baseBudget = tokenBudgetFor(model.reasoningEffort);
+  const raisedBudget = Math.min(baseBudget * 2, TOKEN_BUDGET.MAX);
+  const details = {
+    truncated: true,
+    finish: 'max-tokens',
+    textChars: typeof first.text === 'string' ? first.text.length : 0,
+    budget: baseBudget,
+    attemptedBudget: raisedBudget,
+  };
+  const retryPrompt = {
+    system: prompt.system,
+    messages: prompt.messages.concat([buildTruncationReminder()]),
+  };
+  let second = null;
+  try {
+    second = await callModelAuto(llm, retryPrompt, model, timeoutMs, { budget: raisedBudget });
+  } catch (error) {
+    details.retryError = describeRepairError(error);
+  }
+  if (second) {
+    const failure = finishFailure(second.finish, second.text);
+    if (failure) {
+      return Object.assign({}, failure, { details: Object.assign({}, failure.details || {}, details) });
+    }
+    const retryParsed = parseModelOutput(second.text);
+    if (retryParsed.ok) {
+      return Object.assign({}, retryParsed, { retried: { budget: String(raisedBudget) } });
+    }
+    details.retryExcerpt = retryParsed.excerpt;
+    details.retryTextChars = typeof second.text === 'string' ? second.text.length : 0;
+  }
+  return {
+    ok: false,
+    code: ERROR_CODES.BAD_MODEL_OUTPUT,
+    message: 'the model output was truncated before the JSON was complete',
+    excerpt: details.retryExcerpt || parsed.excerpt,
+    details,
+  };
+}
+
+/**
  * One model call, then a second stricter call when the answer was not JSON.
  * The repair round is best-effort: when it cannot run at all (adapter/host
  * failure) the caller still gets the actionable "not JSON" outcome instead of
@@ -355,12 +417,7 @@ async function generateResult(llm, prompt, model, timeoutMs) {
     return first.retry ? Object.assign({}, parsed, { retried: first.retry }) : parsed;
   }
   if (first.finish && first.finish.kind === 'max-tokens') {
-    return {
-      ok: false,
-      code: ERROR_CODES.BAD_MODEL_OUTPUT,
-      message: 'the model output was truncated before the JSON was complete',
-      excerpt: parsed.excerpt,
-    };
+    return retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed);
   }
   const repairPrompt = {
     system: prompt.system,
@@ -394,7 +451,16 @@ async function generateResult(llm, prompt, model, timeoutMs) {
     return { ok: false, ...secondFailure };
   }
   const repaired = parseModelOutput(second.text);
-  return second.retry && repaired.ok ? Object.assign({}, repaired, { retried: second.retry }) : repaired;
+  if (!repaired.ok) {
+    return Object.assign({}, repaired, {
+      details: {
+        finish: second.finish && second.finish.kind ? second.finish.kind : 'none',
+        textChars: typeof second.text === 'string' ? second.text.length : 0,
+        attemptedRepair: true,
+      },
+    });
+  }
+  return second.retry ? Object.assign({}, repaired, { retried: second.retry }) : repaired;
 }
 
 /**

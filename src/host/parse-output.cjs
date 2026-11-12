@@ -23,43 +23,131 @@ function stripOuterFence(text) {
 }
 
 /**
+ * Escape raw control characters that models sometimes put inside JSON strings
+ * (a real newline inside the prompt field is the most common one) and drop
+ * structural trailing commas, so the candidate can still be parsed.
+ * @param {string} text
+ * @returns {string}
+ */
+function repairJsonText(text) {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        out += char;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        out += char;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+        out += char;
+        continue;
+      }
+      if (char === '\n') {
+        out += '\\n';
+        continue;
+      }
+      if (char === '\r') {
+        out += '\\r';
+        continue;
+      }
+      if (char === '\t') {
+        out += '\\t';
+        continue;
+      }
+      if (char < ' ') {
+        out += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
+        continue;
+      }
+      out += char;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      out += char;
+      continue;
+    }
+    if (char === '}' || char === ']') {
+      out = out.replace(/[\s,]+$/, '');
+    }
+    out += char;
+  }
+  return out;
+}
+
+/**
+ * @param {string} text
+ * @returns {Record<string, unknown> | null}
+ */
+function tryParseObject(text) {
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Every balanced `{...}` candidate in source order.
+ * @param {string} source
+ * @returns {string[]}
+ */
+function balancedCandidates(source) {
+  const out = [];
+  for (let start = source.indexOf('{'); start !== -1; start = source.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < source.length; index += 1) {
+      const char = source[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === '{') depth += 1;
+      else if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          out.push(source.slice(start, index + 1));
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Find the first balanced JSON object in a string, ignoring braces inside
- * strings, and parse it.
+ * strings. Every candidate is tried, not only the first one, and a candidate
+ * that failed to parse is retried after mechanical repair (raw control
+ * characters, trailing commas).
  * @param {string} text
  * @returns {Record<string, unknown> | null}
  */
 function extractJsonObject(text) {
   const source = typeof text === 'string' ? text : '';
-  const start = source.indexOf('{');
-  if (start === -1) return null;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < source.length; index += 1) {
-    const char = source[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (char === '\\') escaped = true;
-      else if (char === '"') inString = false;
-      continue;
-    }
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-    if (char === '{') depth += 1;
-    else if (char === '}') {
-      depth -= 1;
-      if (depth === 0) {
-        const candidate = source.slice(start, index + 1);
-        try {
-          const parsed = JSON.parse(candidate);
-          return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
-        } catch (error) {
-          return null;
-        }
-      }
-    }
+  const candidates = balancedCandidates(source);
+  for (const candidate of candidates) {
+    const direct = tryParseObject(candidate);
+    if (direct) return direct;
+    const repaired = tryParseObject(repairJsonText(candidate));
+    if (repaired) return repaired;
   }
   return null;
 }
@@ -115,14 +203,34 @@ function normalizeResult(value) {
 }
 
 /**
+ * @param {string} text
+ * @returns {string[]}
+ */
+function fencedBlocks(text) {
+  const out = [];
+  const pattern = /```[a-zA-Z0-9_-]*\s*\n([\s\S]*?)```/g;
+  let match = pattern.exec(text);
+  while (match !== null) {
+    out.push(match[1]);
+    match = pattern.exec(text);
+  }
+  return out;
+}
+
+/**
  * @param {string} raw
  * @returns {{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt: string }}
  */
 function parseModelOutput(raw) {
   const text = typeof raw === 'string' ? raw : '';
-  const candidate = extractJsonObject(stripOuterFence(text));
-  const result = candidate ? normalizeResult(candidate) : null;
-  if (result) return { ok: true, result };
+  const pieces = fencedBlocks(text);
+  pieces.push(stripOuterFence(text));
+  pieces.push(text);
+  for (const piece of pieces) {
+    const candidate = extractJsonObject(piece);
+    const result = candidate ? normalizeResult(candidate) : null;
+    if (result) return { ok: true, result };
+  }
   const excerpt = text.trim().slice(0, 400);
   return {
     ok: false,
@@ -135,6 +243,8 @@ function parseModelOutput(raw) {
 module.exports = {
   stripOuterFence,
   extractJsonObject,
+  repairJsonText,
+  balancedCandidates,
   stripPromptFence,
   normalizeResult,
   parseModelOutput,

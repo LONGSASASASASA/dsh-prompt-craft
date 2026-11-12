@@ -12,7 +12,7 @@ const PLUGIN_ID = 'dsh-prompt-craft';
 /** Host HTTP route serving the plugin RPC. */
 const RPC_PATH = '/dsh-prompt-craft/rpc';
 /** Wire version of the plugin's own protocol. */
-const VERSION = '0.4.5';
+const VERSION = '0.4.6';
 
 /** RPC method names. */
 const METHODS = Object.freeze({
@@ -68,10 +68,19 @@ const LIMITS = Object.freeze({
   MAX_WEIXIN_TEXT_CHARS: 8000,
 });
 
-/** Token budget for the enhancement call. */
+/**
+ * Token budget for the enhancement call.
+ *
+ * Reasoning models spend output tokens on hidden thinking before they write a
+ * single character of the answer, so a budget that is generous for a plain
+ * model can truncate a reasoning model mid-JSON. HIGH tiers get room to think
+ * *and* write; `tokenBudgetFor` is the only place that decides.
+ */
 const TOKEN_BUDGET = Object.freeze({
   DEFAULT: 4096,
   REASONING: 8000,
+  HEAVY_REASONING: 16000,
+  MAX: 32768,
 });
 
 /** Stable error codes returned by the host. */
@@ -309,7 +318,10 @@ function normalizeContext(value) {
  * @returns {number}
  */
 function tokenBudgetFor(reasoningEffort) {
-  return reasoningEffort ? TOKEN_BUDGET.REASONING : TOKEN_BUDGET.DEFAULT;
+  const effort = normalizeEffort(reasoningEffort);
+  if (!effort) return TOKEN_BUDGET.DEFAULT;
+  if (effort === 'high' || effort === 'xhigh' || effort === 'max') return TOKEN_BUDGET.HEAVY_REASONING;
+  return TOKEN_BUDGET.REASONING;
 }
 
 module.exports = {

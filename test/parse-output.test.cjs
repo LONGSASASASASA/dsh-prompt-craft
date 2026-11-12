@@ -7,6 +7,7 @@ const { LIMITS } = require('../src/protocol.cjs');
 const {
   stripOuterFence,
   extractJsonObject,
+  repairJsonText,
   stripPromptFence,
   normalizeResult,
   parseModelOutput,
@@ -134,4 +135,40 @@ test('parseModelOutput treats non-string input as empty', () => {
   const parsed = parseModelOutput(null);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.excerpt, '');
+});
+
+test('salvages a prompt that contains raw newlines inside the JSON string', () => {
+  const raw = '{"kind":"enhanced","prompt":"line one\nline two","notes":["kept"]}';
+  const parsed = parseModelOutput(raw);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.result.prompt, 'line one\nline two');
+  assert.deepEqual(parsed.result.notes, ['kept']);
+});
+
+test('salvages structural trailing commas', () => {
+  const raw = '{"kind":"enhanced","prompt":"ok","notes":["a","b",],}';
+  const parsed = parseModelOutput(raw);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.result.prompt, 'ok');
+  assert.deepEqual(parsed.result.notes, ['a', 'b']);
+});
+
+test('skips a broken candidate and parses the next balanced object', () => {
+  const raw = 'first {"broken": } then {"kind":"enhanced","prompt":"recovered"}';
+  const parsed = parseModelOutput(raw);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.result.prompt, 'recovered');
+});
+
+test('parses a fenced object even with prose around the fence', () => {
+  const raw = 'Here you go:\n```json\n{"kind":"enhanced","prompt":"inside"}\n```\nHope it helps.';
+  const parsed = parseModelOutput(raw);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.result.prompt, 'inside');
+});
+
+test('repairJsonText only touches bare control characters inside strings', () => {
+  const repaired = repairJsonText('{"prompt":"a\nb\tc","keep":"\\\\n"}');
+  assert.equal(repaired.includes('a\\nb\\tc'), true);
+  assert.equal(repaired.includes('"keep":"\\\\n"'), true);
 });
