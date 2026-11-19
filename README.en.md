@@ -89,6 +89,7 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 🎚 **Three intensities** — Light (tidy wording, state the goal) / Goal-first (rewrite around the outcome you want) / Elevated (outcome, success criteria, boundaries and trade-offs in one brief).
 - 🧭 **Automatic scenario detection** — code / writing / research / agent / general, or pick one manually.
 - 📎 **Recent conversation as context** — the last few messages are sent along as background (on by default, can be turned off in settings) so the rewrite knows what you are working on; the context is only read for understanding and never copied into the result.
+- 🧾 **Traceable edits** — every rewrite lists "Why these edits" in the panel, each change tagged with the rule ids it follows (14 published rules since v0.5.0, see below).
 - 🧩 **Diff preview + hunk-level accept** — per-hunk checkboxes, a compare view (default) or sections view, apply-all, and undo.
 - ✂️ **Terse output** — compress the character count without dropping a requirement; Chinese may use a compact classical register (须 / 勿 / 免 / four-character phrases) but readability comes first, and a one-line draft gets a hard length cap.
 - 🪟 **Same width as the composer** — the panel shares the composer's left and right edges, with a light blue gradient outline that stays clear in light and dark themes.
@@ -100,6 +101,18 @@ Most one-click optimizers replace your whole draft, so you cannot tell what chan
 - 💬 **WeChat bot inbox** — connect from Settings → WeChat Bot by scanning a QR code (the plugin speaks Tencent iLink directly, no extra runtime); messages you send to the bot land in a local queue and are filled into the composer draft. Fill only: nothing is sent and nothing is replied to WeChat.
 - 🔘 **Draft-state hint** — once the composer has text, ✨ gets a soft grey background so it is obvious the button is ready.
 - 🌏 **Chinese and English UI** — follows the browser language, overridable in settings.
+
+## Rules the rewrite follows (traceable)
+
+Since v0.5.0 the enhancement does not "fix by feel": every call applies **14 rules taken from first-party public guidance**, and each edit in the result cites the rule ids it followed. The full table — rule, how it is applied, one source link per rule — lives in [docs/prompt-rules.md](docs/prompt-rules.md).
+
+- **R1–R3 frame the task**: outcome before procedure; name the concrete file / component / route; add only context the repository cannot reveal.
+- **R4–R6 make it checkable**: define "done" as an observable target; require a verification loop and its evidence; reuse existing components and design tokens.
+- **R7–R9 right-size it**: planning scales with the task; state the answer shape, length and audience; write imperatives with the non-negotiables first.
+- **R10–R11 remove noise**: no IMPORTANT / all-caps / "think step by step"; organize with short sections and a few canonical examples.
+- **R12–R14 stay honest**: ask only when the gap changes the outcome, otherwise state the assumption; use placeholders instead of inventing; split multi-part work into verifiable steps.
+
+Sources: [Claude Code prompt library](https://code.claude.com/docs/en/prompt-library) · [Claude Code best practices](https://code.claude.com/docs/en/best-practices) · [Anthropic: effective context engineering](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) · [GitHub Copilot prompt engineering](https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering) · [GitHub Spec Kit](https://github.com/github/spec-kit) · [OpenAI GPT-5.1 prompting guide](https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide)
 
 ## How it compares
 
@@ -130,7 +143,7 @@ Requires DSH `>= 0.2.2-rc.1`.
 
 ```bash
 # Straight from GitHub (no npm publish needed)
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.6
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.5.0
 
 # Or from npm (once published)
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -228,7 +241,7 @@ That message is the plugin's parse failure (`BAD_MODEL_OUTPUT`). It has exactly 
 ```bash
 npm install
 npm run build      # rebuild lib/ (host files copied, client bundled by esbuild)
-npm test           # node --test, 148 cases
+npm test           # node --test, 154 cases
 npm run check      # verify lib/ matches src/ (no build drift)
 ```
 

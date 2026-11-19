@@ -53,6 +53,10 @@ test('normalizeResult accepts the enhanced shape', () => {
     goal: 'Ship a working parser',
     elevation: ['from "fix the bug" to "make the parser trustworthy"'],
     notes: [' one ', 'two', 'three', 'four', 'five'],
+    rationale: [
+      { change: '把结果写进开头', rules: ['R1', 'R5'] },
+      { change: '补验收标准', rules: ['R4'] },
+    ],
   });
   assert.equal(result.kind, 'enhanced');
   assert.equal(result.prompt, 'Better prompt');
@@ -61,6 +65,30 @@ test('normalizeResult accepts the enhanced shape', () => {
   assert.equal(result.goal, 'Ship a working parser');
   assert.deepEqual(result.elevation, ['from "fix the bug" to "make the parser trustworthy"']);
   assert.equal(result.notes.length, 4);
+  assert.deepEqual(result.rationale, [
+    { change: '把结果写进开头', rules: ['R1', 'R5'] },
+    { change: '补验收标准', rules: ['R4'] },
+  ]);
+});
+
+test('normalizeResult keeps only valid rationale citations', () => {
+  const result = normalizeResult({
+    kind: 'enhanced',
+    prompt: 'p',
+    rationale: [
+      { change: 'a', rules: ['R99', 'r2'] },
+      { change: '', rules: ['R1'] },
+      { change: 'b', rules: [] },
+      { change: 'c', rules: ['R3', 'R4', 'R5', 'R6'] },
+    ],
+  });
+  assert.deepEqual(result.rationale, [
+    { change: 'a', rules: ['R2'] },
+    { change: 'c', rules: ['R3', 'R4', 'R5'] },
+  ]);
+
+  const plain = normalizeResult({ kind: 'enhanced', prompt: 'no rationale' });
+  assert.deepEqual(plain.rationale, []);
 });
 
 test('normalizeResult fills goal and elevation defaults', () => {
@@ -72,6 +100,7 @@ test('normalizeResult fills goal and elevation defaults', () => {
   const plain = normalizeResult({ kind: 'enhanced', prompt: 'no extra fields' });
   assert.equal(plain.goal, '');
   assert.deepEqual(plain.elevation, []);
+  assert.deepEqual(plain.rationale, []);
 });
 
 test('normalizeResult tolerates a missing kind when a prompt exists', () => {

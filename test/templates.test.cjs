@@ -53,7 +53,7 @@ test('buildSystem mode selection is exclusive and falls back to standard', () =>
   const fallback = templates.buildSystem({ mode: 'nonsense', scenario: 'general', locale: 'en' });
   assert.match(fallback, /STANDARD EDIT/);
   assert.match(fallback, /goal-first rewrite/);
-  assert.match(fallback, /Write goal, summary, elevation, notes and questions in English\./);
+  assert.match(fallback, /Write goal, summary, elevation, notes, rationale and questions in English\./);
   assert.doesNotMatch(fallback, /Scenario \(/);
 });
 
@@ -61,8 +61,19 @@ test('buildSystem keeps the user language in the prompt field but localizes meta
   const zh = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'zh' });
   const en = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'en' });
   assert.match(zh, /prompt 字段保持草稿本身的语言/);
-  assert.match(en, /Write goal, summary, elevation, notes and questions in English/);
+  assert.match(en, /Write goal, summary, elevation, notes, rationale and questions in English/);
   assert.notEqual(zh, en);
+});
+
+test('buildSystem embeds the public rules and asks for citable rationale', () => {
+  const system = templates.buildSystem({ mode: 'standard', scenario: 'code', locale: 'zh' });
+  assert.match(system, /R1 start with the outcome/);
+  assert.match(system, /R5 require a verification loop/);
+  assert.match(system, /R14 split multi-part work/);
+  assert.match(system, /cite the ids of the rules you actually used/);
+  assert.match(system, /prefer concrete file\/component\/route names/);
+  assert.match(system, /"rationale"/);
+  assert.match(system, /every id must be one of R1–R14/);
 });
 
 test('buildEnhancePrompt wraps the draft in fences', () => {

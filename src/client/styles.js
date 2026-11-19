@@ -296,6 +296,25 @@ const CSS = `
 .dpc-notes[data-tone='muted'] li > .dpc-ic { color: var(--dpc-fg-3); }
 .dpc-notes[data-tone='plain'] li { padding-left: 2px; }
 
+.dpc-rationale .dpc-notes li { align-items: baseline; gap: 8px; }
+.dpc-rule-ids { display: inline-flex; flex-wrap: wrap; gap: 3px; flex-shrink: 0; }
+.dpc-rule-id {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 1px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--dpc-line);
+  background: var(--dpc-accent-soft);
+  color: var(--dpc-accent);
+  font-family: var(--dpc-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  cursor: help;
+}
+
 .dpc-hint { margin: 0; font-size: 12px; color: var(--dpc-fg-3); }
 
 /* ---------- diff hunks ---------- */

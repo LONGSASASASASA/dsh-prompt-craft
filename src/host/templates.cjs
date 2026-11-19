@@ -9,6 +9,7 @@
  */
 
 const { LIMITS } = require('../protocol.cjs');
+const { rulesBlock } = require('./rules.cjs');
 
 /** Base discipline applied to every call. */
 const BASE_RULES = [
@@ -64,9 +65,9 @@ const SCENARIO_RULES = {
 /** Response schema description shared by both shapes. */
 const OUTPUT_SCHEMA = [
   'Respond with exactly one JSON object in one of these two shapes:',
-  '{"kind":"enhanced","goal":"<one sentence: the outcome this prompt is meant to produce, in the user\'s language>","prompt":"<the rewritten prompt>","scenario":"code|writing|research|agent|general","summary":"<one sentence in the user\'s language: how the rewrite serves that goal>","elevation":["<from X to Y: how the aim was raised>","..."],"notes":["<short change note>","..."]}',
+  '{"kind":"enhanced","goal":"<one sentence: the outcome this prompt is meant to produce, in the user\'s language>","prompt":"<the rewritten prompt>","scenario":"code|writing|research|agent|general","summary":"<one sentence in the user\'s language: how the rewrite serves that goal>","elevation":["<from X to Y: how the aim was raised>","..."],"notes":["<short change note>","..."],"rationale":[{"change":"<what you changed in the rewritten prompt>","rules":["R1","R5"]}, "..."]}',
   '{"kind":"questions","questions":["<question 1>","<question 2>"],"summary":"<one sentence in the user\'s language>"}',
-  'Notes: at most 4, each under 120 characters. Elevation: at most 3, each under 160 characters. Questions: at most 2, each under 200 characters, specific and answerable in one line.',
+  'Notes: at most 4, each under 120 characters. Elevation: at most 3, each under 160 characters. Rationale: at most 6 items, each with a concrete change under 140 characters and the ids of the rules that justify it (at most 3 ids, every id must be one of R1–R14 above). Questions: at most 2, each under 200 characters, specific and answerable in one line.',
   'The whole answer must be valid JSON: no smart quotes, no unescaped newlines inside strings (use \\n), no trailing commas, no code fences, and no text before or after the object. An answer that is cut off, fenced, or wrapped in prose is unusable.',
   'Use the questions shape only when the draft is missing information that would materially change the rewrite. Otherwise use the enhanced shape, even if the draft is already decent.',
 ].join('\n');
@@ -94,8 +95,8 @@ function buildTruncationReminder() {
  */
 function languageRule(locale) {
   return locale === 'en'
-    ? 'Write goal, summary, elevation, notes and questions in English. The prompt field keeps the draft\'s own language.'
-    : '用中文写 goal、summary、elevation、notes 和 questions（prompt 字段保持草稿本身的语言）。';
+    ? 'Write goal, summary, elevation, notes, rationale and questions in English. The prompt field keeps the draft\'s own language.'
+    : '用中文写 goal、summary、elevation、notes、rationale 和 questions（prompt 字段保持草稿本身的语言）。';
 }
 
 /**
@@ -108,6 +109,7 @@ function buildSystem(input) {
   const scenarioRule = SCENARIO_RULES[input.scenario];
   if (scenarioRule) blocks.push(scenarioRule);
   blocks.push(languageRule(input.locale));
+  blocks.push(rulesBlock(input.scenario));
   blocks.push(OUTPUT_SCHEMA);
   return blocks.join('\n\n');
 }

@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.4.6",
-  "description": "Goal-oriented prompt enhancement for DeepSeek Harness with a quiet glass UI, recent-conversation context, and truncation-aware JSON recovery.",
+  "version": "0.5.0",
+  "description": "Goal-oriented prompt enhancement for DeepSeek Harness: rewrites drafts around the outcome they serve, follows 14 published prompt-writing rules, shows a line diff with per-section accept, and explains every edit by rule id.",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {

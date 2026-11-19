@@ -12,7 +12,7 @@ const PLUGIN_ID = 'dsh-prompt-craft';
 /** Host HTTP route serving the plugin RPC. */
 const RPC_PATH = '/dsh-prompt-craft/rpc';
 /** Wire version of the plugin's own protocol. */
-const VERSION = '0.4.6';
+const VERSION = '0.5.0';
 
 /** RPC method names. */
 const METHODS = Object.freeze({
@@ -47,6 +47,133 @@ const SCENARIOS = Object.freeze(['auto', 'code', 'writing', 'research', 'agent',
  * decide the rest.
  */
 const REASONING_EFFORTS = Object.freeze(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+
+/**
+ * Public prompt-writing rules the enhancer must apply, one id per rule.
+ *
+ * Every rule is traceable to a published, first-party source (see `sources`).
+ * The host injects the rule ids and guidance into the system prompt and the
+ * answer must cite the ids it actually applied, so each edit in the result can
+ * be explained. Keep ids stable: answers and the UI both reference them.
+ */
+const RULES = Object.freeze([
+  Object.freeze({
+    id: 'R1',
+    zh: '先写结果，再写步骤',
+    en: 'start with the outcome, not the procedure',
+    sources: [
+      'https://code.claude.com/docs/en/prompt-library',
+      'https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering',
+    ],
+  }),
+  Object.freeze({
+    id: 'R2',
+    zh: '点名具体文件 / 组件 / 接口',
+    en: 'name the concrete file, component, route, or command',
+    sources: [
+      'https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering',
+      'https://code.claude.com/docs/en/prompt-library',
+    ],
+  }),
+  Object.freeze({
+    id: 'R3',
+    zh: '只写代码里看不到的上下文',
+    en: 'add only context the repository cannot reveal',
+    sources: [
+      'https://code.claude.com/docs/en/best-practices',
+      'https://www.anthropic.com/research/effective-context-engineering-for-ai-agents',
+    ],
+  }),
+  Object.freeze({
+    id: 'R4',
+    zh: '把「做好」写成可验证的标准',
+    en: 'define done as an observable target',
+    sources: [
+      'https://code.claude.com/docs/en/prompt-library',
+      'https://github.com/github/spec-kit',
+    ],
+  }),
+  Object.freeze({
+    id: 'R5',
+    zh: '要求跑检查并给出证据',
+    en: 'require a verification loop and its evidence',
+    sources: [
+      'https://code.claude.com/docs/en/prompt-library',
+      'https://code.claude.com/docs/en/best-practices',
+    ],
+  }),
+  Object.freeze({
+    id: 'R6',
+    zh: '复用现有组件与设计 token',
+    en: 'reuse existing components, tokens, and conventions',
+    sources: [
+      'https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide',
+      'https://code.claude.com/docs/en/prompt-library',
+    ],
+  }),
+  Object.freeze({
+    id: 'R7',
+    zh: '计划随任务规模伸缩',
+    en: 'right-size the process to the task',
+    sources: [
+      'https://github.com/github/spec-kit',
+      'https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide',
+    ],
+  }),
+  Object.freeze({
+    id: 'R8',
+    zh: '写清输出形式、长度与受众',
+    en: 'state the answer shape, length, and audience',
+    sources: [
+      'https://code.claude.com/docs/en/prompt-library',
+      'https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide',
+    ],
+  }),
+  Object.freeze({
+    id: 'R9',
+    zh: '用祈使句写规则，关键的放前面',
+    en: 'write requirements as directives, most important first',
+    sources: ['https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering'],
+  }),
+  Object.freeze({
+    id: 'R10',
+    zh: '不靠 IMPORTANT / 大写 / “一步步想”加码',
+    en: 'do not pad with emphasis or step-by-step incantations',
+    sources: ['https://code.claude.com/docs/en/best-practices'],
+  }),
+  Object.freeze({
+    id: 'R11',
+    zh: '用小节组织，示例少而典型',
+    en: 'organize with short sections and a few canonical examples',
+    sources: ['https://www.anthropic.com/research/effective-context-engineering-for-ai-agents'],
+  }),
+  Object.freeze({
+    id: 'R12',
+    zh: '缺信息才问，否则写明假设继续',
+    en: 'ask only when the gap changes the outcome',
+    sources: [
+      'https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide',
+      'https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering',
+    ],
+  }),
+  Object.freeze({
+    id: 'R13',
+    zh: '未知信息用占位符，不臆造',
+    en: 'never invent files, APIs, versions, or requirements',
+    sources: ['https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide'],
+  }),
+  Object.freeze({
+    id: 'R14',
+    zh: '多步任务拆成有序可验收的小步',
+    en: 'split multi-part work into ordered, verifiable steps',
+    sources: [
+      'https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering',
+      'https://github.com/github/spec-kit',
+    ],
+  }),
+]);
+
+const RULE_IDS = Object.freeze(RULES.map((rule) => rule.id));
 
 /** Wire limits enforced on both sides. */
 const LIMITS = Object.freeze({
@@ -332,6 +459,8 @@ module.exports = {
   MODES,
   SCENARIOS,
   REASONING_EFFORTS,
+  RULES,
+  RULE_IDS,
   LIMITS,
   TOKEN_BUDGET,
   ERROR_CODES,

@@ -89,6 +89,7 @@
 - 🎚 **三档力度**：轻改（理顺表达、把目标说清楚）/ 目标导向（围绕真正想要的结果重写）/ 立意升维（目标、成功标准、边界与取舍一次写全）。
 - 🧭 **自动场景识别**：自动判断代码 / 写作 / 调研 / Agent / 通用，也可手动指定。
 - 📎 **附带对话上下文**：增强时自动把最近几条对话作为「背景」发给模型（默认开启，可在设置里关），让它知道你在做什么，目标与立意更贴合上下文；上下文只用于理解，不会写进结果。
+- 🧾 **改动依据（可溯源）**：每次改写会在面板里列出「改动依据」，每条都标注它依据的规则 id（v0.5.0 起共 14 条公开规则，见下节）。
 - 🧩 **diff 预览 + 分段接受**：逐 hunk 勾选、对比视图（默认）/ 分段视图、全部应用、撤销。
 - ✂️ **精炼输出**：不丢要求的前提下压缩字数，中文可带文言式紧凑（须 / 勿 / 免 / 四字短语），但以可读为先；单行草稿有字数上限。
 - 🪟 **与输入框等宽**：面板左右边缘与输入框对齐，外圈浅蓝渐变描边，深浅色主题下都清晰。
@@ -100,6 +101,18 @@
 - 💬 **微信 Bot 收件箱**：设置页「微信 Bot」页签扫码连接（借用腾讯 iLink 协议，零额外运行时），微信里发给 Bot 的消息会进本地队列并自动填入输入框草稿；只填入、不发送、不回复。
 - 🔘 **草稿态提示**：输入框有内容时 ✨ 带一层浅灰底，一眼看出「可以点了」。
 - 🌏 **中英双语**：跟随浏览器语言，可在设置里覆盖。
+
+## 改写规则（可溯源）
+
+v0.5.0 起，增强不再凭感觉改，而是按 **14 条来自一手公开文档的规则**执行；结果里的每条改动都带规则 id，可以逐条对回来源。完整表（规则、落地方式、每条来源链接）见 [docs/prompt-rules.md](docs/prompt-rules.md)。
+
+- **R1–R3 说清任务**：先写结果再写步骤；点名具体文件 / 组件 / 路由；只补仓库里看不到的上下文。
+- **R4–R6 让人能验收**：把「做好」写成可验证标准；要求跑检查并给证据；复用现有组件与设计 token。
+- **R7–R9 按规模写**：计划随任务伸缩；写清输出形式 / 长度 / 受众；用祈使句、关键的放最前。
+- **R10–R11 不加噪**：不用 IMPORTANT / 大写 /「一步步想」；用小节组织、示例少而典型。
+- **R12–R14 不越界**：缺信息才问，否则写明假设；未知用占位符不臆造；多步任务拆成可验收的小步。
+
+来源：[Claude Code prompt library](https://code.claude.com/docs/en/prompt-library) · [Claude Code best practices](https://code.claude.com/docs/en/best-practices) · [Anthropic: effective context engineering](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) · [GitHub Copilot prompt engineering](https://docs.github.com/en/copilot/concepts/prompting-and-context/prompt-engineering) · [GitHub Spec Kit](https://github.com/github/spec-kit) · [OpenAI GPT-5.1 prompting guide](https://developers.openai.com/cookbook/examples/gpt-5/gpt-5-1_prompting_guide)
 
 ## 和同类插件比
 
@@ -130,7 +143,7 @@ DSH 插件市场里已经有不少提示词相关插件。这里只比较公开�
 
 ```bash
 # 直接从 GitHub 安装（推荐，无需 npm 发布）
-dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.4.6
+dsh plugin --profile desktop add github:LONGSASASASASA/dsh-prompt-craft#v0.5.0
 
 # 或从 npm（发布后）
 dsh plugin --profile desktop add dsh-prompt-craft
@@ -229,7 +242,7 @@ dsh plugin --profile desktop remove dsh-prompt-craft
 ```bash
 npm install
 npm run build      # 生成 lib/（host 半逐文件复制 + esbuild 打包客户端）
-npm test           # node --test，148 个用例
+npm test           # node --test，154 个用例
 npm run check      # 校验 lib/ 与源码一致（无构建漂移）
 ```
 

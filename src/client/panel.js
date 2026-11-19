@@ -10,8 +10,11 @@ const React = require('react');
 const actions = require('./actions.js');
 const store = require('./store.js');
 const { createTranslator } = require('./i18n.js');
-const { MODES, SCENARIOS } = require('../protocol.cjs');
+const { MODES, SCENARIOS, RULES } = require('../protocol.cjs');
 const icons = require('./icons.js');
+
+const RULE_BY_ID = {};
+for (const rule of RULES) RULE_BY_ID[rule.id] = rule;
 
 const h = React.createElement;
 const { useComposerAlign, useRef } = require('./align.js');
@@ -336,7 +339,7 @@ function EnhancePanel(props) {
       )
     : null;
 
-  const summaryBlock = enhanced && (enhanced.summary || (enhanced.notes && enhanced.notes.length > 0) || (enhanced.elevation && enhanced.elevation.length > 0))
+  const summaryBlock = enhanced && (enhanced.summary || (enhanced.notes && enhanced.notes.length > 0) || (enhanced.elevation && enhanced.elevation.length > 0) || (enhanced.rationale && enhanced.rationale.length > 0))
     ? h(
         'div',
         { className: 'dpc-block' },
@@ -374,6 +377,41 @@ function EnhancePanel(props) {
                     { key: 'n' + index },
                     h('span', { className: 'dpc-ic' }, h(icons.Dot, { size: 12 })),
                     h('span', null, note),
+                  );
+                }),
+              ),
+            )
+          : null,
+        enhanced.rationale && enhanced.rationale.length > 0
+          ? h(
+              'div',
+              { className: 'dpc-block dpc-rationale' },
+              h('span', { className: 'dpc-block-head' }, h(icons.Check, { size: 13 }), t('result.rationale')),
+              h(
+                'ul',
+                { className: 'dpc-notes', 'data-tone': 'muted' },
+                enhanced.rationale.map(function renderRationale(item, index) {
+                  return h(
+                    'li',
+                    { key: 'r' + index },
+                    h(
+                      'span',
+                      { className: 'dpc-rule-ids' },
+                      item.rules.map(function renderRuleId(id) {
+                        const cited = RULE_BY_ID[id];
+                        return h(
+                          'span',
+                          {
+                            key: id,
+                            className: 'dpc-rule-id',
+                            'data-rule': id,
+                            title: cited ? cited.zh + ' · ' + cited.en : id,
+                          },
+                          id,
+                        );
+                      }),
+                    ),
+                    h('span', null, item.change),
                   );
                 }),
               ),

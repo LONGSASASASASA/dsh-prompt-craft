@@ -10,6 +10,7 @@
 
 const { LIMITS } = require('../protocol.cjs');
 const { clampNotes, clampElevation, clampQuestions } = require('./templates.cjs');
+const { clampRationale } = require('./rules.cjs');
 
 /**
  * Remove one markdown code fence that wraps the whole text.
@@ -167,7 +168,7 @@ function stripPromptFence(prompt) {
 /**
  * Normalize a parsed model answer into the plugin's result shape.
  * @param {unknown} value
- * @returns {{ kind: 'enhanced', prompt: string, goal: string, summary: string, notes: string[], elevation: string[], scenario: string } | { kind: 'questions', questions: string[], summary: string } | null}
+ * @returns {{ kind: 'enhanced', prompt: string, goal: string, summary: string, notes: string[], elevation: string[], rationale: Array<{change: string, rules: string[]}>, scenario: string } | { kind: 'questions', questions: string[], summary: string } | null}
  */
 function normalizeResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -195,6 +196,7 @@ function normalizeResult(value) {
       summary,
       notes: clampNotes(record.notes),
       elevation: clampElevation(record.elevation),
+      rationale: clampRationale(record.rationale),
       scenario,
     };
   }

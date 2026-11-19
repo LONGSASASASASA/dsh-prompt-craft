@@ -220,6 +220,10 @@ function enhancedPayload(request) {
       summary: '改得更具体了',
       elevation: ['从"写一首诗"抬到"让读者看见海"'],
       notes: ['加了行数约束'],
+      rationale: [
+        { change: '把目标写进第一行', rules: ['R1', 'R8'] },
+        { change: '补上可验收的完成标准', rules: ['R4'] },
+      ],
       scenario: 'writing',
     },
     meta: {
@@ -381,6 +385,14 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.match(textOf(panel), /让读者读完就知道海是什么样子/);
   assert.match(textOf(panel), /从"写一首诗"抬到"让读者看见海"/);
   assert.match(textOf(panel), /加了行数约束/);
+  assert.match(textOf(panel), /改动依据/);
+  assert.match(textOf(panel), /把目标写进第一行/);
+  assert.match(textOf(panel), /补上可验收的完成标准/);
+  const ruleChips = [];
+  walk(panel, (node) => {
+    if (node && node.props && typeof node.props['data-rule'] === 'string') ruleChips.push(node.props['data-rule']);
+  });
+  assert.deepEqual(ruleChips, ['R1', 'R8', 'R4']);
   const compare = findNode(panel, (node) => node.props && node.props.className === 'dpc-split');
   assert.ok(compare, 'the rewrite must open in the compare view by default');
   assert.match(textOf(compare), /write a poem about the sea/);
