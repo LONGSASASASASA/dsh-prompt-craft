@@ -306,10 +306,11 @@ test('the bundle registers the plugin under the package id', () => {
   assert.equal(typeof plugin.apply, 'function');
 });
 
-test('apply registers the button, the panel, the WeChat notice and the settings section', () => {
+test('apply registers the button, the panel, the WeChat notice, the follow-up bar and the settings section', () => {
   const { slots, loaded } = boot();
   assert.deepEqual(slots.injected, [
     'conversation.input.right',
+    'conversation.input.dock',
     'conversation.input.dock',
     'conversation.input.dock',
     'settings.section',
@@ -322,7 +323,12 @@ test('apply registers the button, the panel, the WeChat notice and the settings 
   const notice = slots.registered[2];
   assert.equal(notice.options.id, 'prompt-craft-weixin');
   assert.equal(notice.options.order, 12);
-  const section = slots.registered[3];
+  const followups = slots.registered[3];
+  assert.equal(followups.options.id, 'prompt-craft-followups');
+  assert.equal(followups.options.order, 16);
+  assert.equal(typeof followups.options.label, 'string');
+  assert.equal(typeof followups.component, 'function');
+  const section = slots.registered[4];
   assert.equal(section.options.id, 'prompt-craft');
   assert.equal(section.options.order, 40);
   assert.equal(typeof section.options.label, 'function');
@@ -383,7 +389,7 @@ test('clicking the button enhances the draft, then the panel applies the result'
   assert.match(textOf(panel), /提示词增强/);
   assert.match(textOf(panel), /改得更具体了/);
   assert.match(textOf(panel), /让读者读完就知道海是什么样子/);
-  assert.match(textOf(panel), /从"写一首诗"抬到"让读者看见海"/);
+  assert.doesNotMatch(textOf(panel), /从"写一首诗"抬到"让读者看见海"/);
   assert.match(textOf(panel), /加了行数约束/);
   assert.match(textOf(panel), /改动依据/);
   assert.match(textOf(panel), /把目标写进第一行/);
@@ -432,7 +438,7 @@ test('a questions answer re-runs the enhancement with hints', async () => {
   await flush();
 
   const questionsPanel = EnhancePanel({ sessionId: 's-2', inputActions });
-  assert.match(textOf(questionsPanel), /先确认两件事/);
+  assert.match(textOf(questionsPanel), /先确认一件事/);
   assert.match(textOf(questionsPanel), /用哪种语言？/);
 
   const textarea = findNode(questionsPanel, (node) => node.type === 'textarea');
@@ -447,7 +453,8 @@ test('a questions answer re-runs the enhancement with hints', async () => {
 
   assert.equal(calls.length, 2);
   assert.equal(calls[1].body.method, 'enhance');
-  assert.equal(calls[1].body.hints, '中文，四行');
+  assert.deepEqual(calls[1].body.clarification, [{question:'用哪种语言？',answer:'中文，四行'}]);
+  assert.equal(calls[1].body.polishOnly, false);
 });
 
 test('a host error is shown with a retry affordance', async () => {
@@ -675,4 +682,27 @@ test('a truncated answer is explained and its excerpt is shown', async () => {
   assert.match(textOf(panel), /模型输出被截断/);
   assert.match(textOf(panel), /模型输出片段/);
   assert.match(textOf(panel), /half a sent/);
+});
+
+
+test('多轮澄清累计问答，仅润色不猜默认目标', async () => {
+  const { calls, slots } = boot({ reply: () => ({payload:{ok:true,result:{kind:'questions',questions:['还要保留什么？'],summary:'待确认'}}}) });
+  const Button = componentFor(slots, 'conversation.input.right');
+  const Panel = componentFor(slots, 'conversation.input.dock');
+  Button({sessionId:'intent-rounds',useInput:sel=>sel({draft:'改高级点'})}).props.onClick();
+  await flush();
+  for (const answer of ['简洁克制','不要毛玻璃']) {
+    let panel=Panel({sessionId:'intent-rounds',inputActions:{setDraft(){}}});
+    findNode(panel,n=>n.type==='textarea').props.onChange({target:{value:answer}});
+    panel=Panel({sessionId:'intent-rounds',inputActions:{setDraft(){}}});
+    findButton(panel,'带着回答重写').props.onClick();
+    await flush();
+  }
+  assert.deepEqual(calls[2].body.clarification.map(item=>item.answer),['简洁克制','不要毛玻璃']);
+  const panel=Panel({sessionId:'intent-rounds',inputActions:{setDraft(){}}});
+  findButton(panel,'仅润色原文').props.onClick();
+  await flush();
+  assert.equal(calls[3].body.polishOnly,true);
+  assert.equal(calls[3].body.hints,'');
+  assert.equal(calls[3].body.clarification.length,2);
 });

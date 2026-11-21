@@ -4,76 +4,15 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const templates = require('../src/host/templates.cjs');
+const { LIMITS } = require('../src/protocol.cjs');
 
-test('buildSystem contains the base rules, mode rules, scenario rules and schema', () => {
-  const system = templates.buildSystem({ mode: 'expert', scenario: 'code', locale: 'zh' });
-  assert.match(system, /prompt editor working inside a chat composer/);
-  assert.match(system, /Start from the goal\./);
-  assert.match(system, /Raise the draft to that goal\./);
-  assert.match(system, /EXPERT EDIT/);
-  assert.match(system, /elevated brief/);
-  assert.match(system, /Scenario \(code\)/);
-  assert.match(system, /real problem the code should solve/);
-  assert.match(system, /用中文写 goal/);
-  assert.match(system, /"kind":"enhanced"/);
-  assert.match(system, /"goal":/);
-  assert.match(system, /"elevation":/);
-  assert.match(system, /"kind":"questions"/);
-});
-
-test('buildSystem forbids inventing facts while asking for elevation', () => {
-  const system = templates.buildSystem({ mode: 'standard', scenario: 'general', locale: 'en' });
-  assert.match(system, /Stay faithful\./);
-  assert.match(system, /never from invented facts/);
-  assert.match(system, /Deepen where it changes the answer/);
-  assert.match(system, /Broaden where it changes the answer/);
-});
-
-test('buildSystem asks for a compressed prompt with a per-mode budget', () => {
-  const standard = templates.buildSystem({ mode: 'standard', scenario: 'general', locale: 'zh' });
-  assert.match(standard, /Compress before you expand\./);
-  assert.match(standard, /Never trade information for brevity\./);
-  assert.match(standard, /compact classical register/);
-  assert.match(standard, /Budget: at or below the draft/);
-  assert.match(standard, /Check the length before returning/);
-
-  const expert = templates.buildSystem({ mode: 'expert', scenario: 'general', locale: 'en' });
-  assert.match(expert, /Budget: at most 1\.4× the draft/);
-
-  const light = templates.buildSystem({ mode: 'light', scenario: 'general', locale: 'en' });
-  assert.match(light, /Budget: at most the draft/);
-});
-
-test('buildSystem mode selection is exclusive and falls back to standard', () => {
-  const light = templates.buildSystem({ mode: 'light', scenario: 'general', locale: 'en' });
-  assert.match(light, /LIGHT EDIT/);
-  assert.doesNotMatch(light, /STANDARD EDIT/);
-  assert.doesNotMatch(light, /EXPERT EDIT/);
-
-  const fallback = templates.buildSystem({ mode: 'nonsense', scenario: 'general', locale: 'en' });
-  assert.match(fallback, /STANDARD EDIT/);
-  assert.match(fallback, /goal-first rewrite/);
-  assert.match(fallback, /Write goal, summary, elevation, notes, rationale and questions in English\./);
-  assert.doesNotMatch(fallback, /Scenario \(/);
-});
-
-test('buildSystem keeps the user language in the prompt field but localizes metadata', () => {
-  const zh = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'zh' });
-  const en = templates.buildSystem({ mode: 'standard', scenario: 'auto', locale: 'en' });
-  assert.match(zh, /prompt 字段保持草稿本身的语言/);
-  assert.match(en, /Write goal, summary, elevation, notes, rationale and questions in English/);
-  assert.notEqual(zh, en);
-});
-
-test('buildSystem embeds the public rules and asks for citable rationale', () => {
-  const system = templates.buildSystem({ mode: 'standard', scenario: 'code', locale: 'zh' });
-  assert.match(system, /R1 start with the outcome/);
-  assert.match(system, /R5 require a verification loop/);
-  assert.match(system, /R14 split multi-part work/);
-  assert.match(system, /cite the ids of the rules you actually used/);
-  assert.match(system, /prefer concrete file\/component\/route names/);
-  assert.match(system, /"rationale"/);
-  assert.match(system, /every id must be one of R1–R14/);
+test('各力度均忠实原意，不强制格式与升维', () => {
+ for (const mode of ['light','standard','expert']) {
+  const system = templates.buildSystem({mode,scenario:'general',locale:'zh'});
+  assert.match(system,/忠实原意优先/);
+  assert.match(system,/最新明确纠正优先/);
+  assert.doesNotMatch(system,/compact classical register|R5 require/);
+ }
 });
 
 test('buildEnhancePrompt wraps the draft in fences', () => {
@@ -83,7 +22,7 @@ test('buildEnhancePrompt wraps the draft in fences', () => {
   const text = prompt.messages[0].content[0].text;
   assert.match(text, /<<<DRAFT\nhello world\nDRAFT>>>/);
   assert.doesNotMatch(text, /ANSWERS/);
-  assert.match(prompt.system, /STANDARD EDIT/);
+  assert.match(prompt.system, /自然改写/);
 });
 
 test('buildEnhancePrompt appends answers and a do-not-ask reminder', () => {
@@ -96,7 +35,7 @@ test('buildEnhancePrompt appends answers and a do-not-ask reminder', () => {
   });
   const text = prompt.messages[0].content[0].text;
   assert.match(text, /<<<ANSWERS\nit is TypeScript\nANSWERS>>>/);
-  assert.match(text, /Do not ask these questions again/);
+  assert.match(text, /仍有新的关键歧义/);
 });
 
 test('buildRefinePrompt includes previous rewrite and instruction', () => {
@@ -155,7 +94,7 @@ test('clampElevation keeps at most three trimmed elevation notes', () => {
 
 test('clampQuestions keeps at most two trimmed questions', () => {
   const questions = templates.clampQuestions([' q1 ', 'q2', 'q3']);
-  assert.deepEqual(questions, ['q1', 'q2']);
+  assert.deepEqual(questions, ['q1']);
 
   const longQuestion = templates.clampQuestions(['x'.repeat(1000)]);
   assert.equal(longQuestion[0].length, 300);
@@ -204,4 +143,38 @@ test('the schema teaches JSON validity and the budget retry reminder exists', ()
   const reminder = buildTruncationReminder();
   assert.equal(reminder.role, 'user');
   assert.ok(reminder.content[0].text.includes('output length limit'));
+});
+
+test('clampFollowups strips list decoration, dedupes and caps the count', () => {
+  const options = templates.clampFollowups([
+    '1. 继续实现后续选项',
+    '继续实现后续选项',
+    '- 解释刚才的改动',
+    '',
+    '补一个测试',
+    '收尾提交',
+    '多余的第五条',
+  ]);
+  assert.deepEqual(options, ['继续实现后续选项', '解释刚才的改动', '补一个测试', '收尾提交']);
+});
+
+test('clampFollowups clips long options and ignores non-string input', () => {
+  const options = templates.clampFollowups(['x'.repeat(400), 42, 'b', 'c']);
+  assert.equal(options.length, 3);
+  assert.equal(options[0].length, LIMITS.MAX_FOLLOWUP_CHARS);
+});
+
+test('buildFollowupsPrompt carries the fenced conversation', () => {
+  const prompt = templates.buildFollowupsPrompt({
+    context: [
+      { role: 'user', text: '帮我加后续选项' },
+      { role: 'assistant', text: '已加好，还需要什么？' },
+    ],
+  });
+  assert.match(prompt.system, /3–4 条/);
+  const text = prompt.messages[0].content[0].text;
+  assert.match(text, /<<<CONTEXT/);
+  assert.match(text, /User: 帮我加后续选项/);
+  assert.match(text, /Assistant: 已加好，还需要什么？/);
+  assert.match(text, /"options"/);
 });

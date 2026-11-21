@@ -286,7 +286,7 @@ function EnhancePanel(props) {
         'div',
         { className: 'dpc-field' },
         h('p', { className: 'dpc-field-label' }, h(icons.Target, { size: 14 }), t('question.title')),
-        h('p', { className: 'dpc-hint' }, t('question.hint')),
+        h('p', { className: 'dpc-hint' }, state.result.summary || t('question.hint')),
         h(
           'ol',
           { className: 'dpc-notes' },
@@ -344,25 +344,6 @@ function EnhancePanel(props) {
         'div',
         { className: 'dpc-block' },
         enhanced.summary ? h('p', { className: 'dpc-summary' }, enhanced.summary) : null,
-        enhanced.elevation && enhanced.elevation.length > 0
-          ? h(
-              'div',
-              { className: 'dpc-block' },
-              h('span', { className: 'dpc-block-head' }, h(icons.Elevate, { size: 13 }), t('result.elevation')),
-              h(
-                'ul',
-                { className: 'dpc-notes' },
-                enhanced.elevation.map(function renderElevation(item, index) {
-                  return h(
-                    'li',
-                    { key: 'e' + index },
-                    h('span', { className: 'dpc-ic' }, h(icons.Dot, { size: 12 })),
-                    h('span', null, item),
-                  );
-                }),
-              ),
-            )
-          : null,
         enhanced.notes && enhanced.notes.length > 0
           ? h(
               'div',

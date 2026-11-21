@@ -35,20 +35,9 @@ const GUIDANCE = {
  * @returns {string}
  */
 function rulesBlock(scenario) {
-  const lines = [
-    'You rewrite draft prompts for a coding agent. Apply these published rules; the rationale field must cite the ids of the rules you actually used.',
-    '',
-  ];
-  for (const rule of RULES) {
-    lines.push(rule.id + ' ' + rule.en + ' — ' + GUIDANCE[rule.id]);
-  }
-  if (scenario === 'code') {
-    lines.push(
-      '',
-      'This draft is about code: prefer concrete file/component/route names, acceptance checks the agent can run, and the project conventions the agent must keep.',
-    );
-  }
-  return lines.join('\n');
+  // 规则只约束表达，不再把所有任务变成编码任务书。
+  const ids = scenario === 'code' ? ['R2', 'R9', 'R13'] : ['R9', 'R13'];
+  return '以下经验仅在不增加用户要求时适用；不强制引用，rationale 可为空。\n' + ids.map((id) => id + ' ' + RULES.find((rule) => rule.id === id).zh).join('\n');
 }
 
 /**

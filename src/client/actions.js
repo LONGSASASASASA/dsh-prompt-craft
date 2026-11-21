@@ -350,6 +350,8 @@ async function enhance(sessionId, draft, overrides) {
   const mode = normalizeMode(options.mode || current.mode || settings.mode);
   const scenario = normalizeScenario(options.scenario || current.scenario || settings.scenario);
   const hints = typeof options.hints === 'string' ? options.hints.slice(0, MAX_HINTS_CHARS) : '';
+  const clarification = Array.isArray(options.clarification) ? options.clarification : [];
+  const polishOnly = options.polishOnly === true;
   const answers = typeof options.answers === 'string' ? options.answers.slice(0, MAX_HINTS_CHARS) : current.answers;
 
   const key = store.sessionKey(sessionId);
@@ -363,6 +365,8 @@ async function enhance(sessionId, draft, overrides) {
     status: 'running',
     base: baseDraft,
     hints: hints,
+    clarification: clarification,
+    polishOnly: polishOnly,
     mode: mode,
     scenario: scenario,
     answers: answers,
@@ -383,6 +387,8 @@ async function enhance(sessionId, draft, overrides) {
       {
         draft: baseDraft,
         hints: hints,
+        clarification: clarification,
+        polishOnly: polishOnly,
         mode: mode,
         scenario: scenario,
         sessionId: String(sessionId || ''),
@@ -437,6 +443,7 @@ async function refine(sessionId, instruction) {
   const mode = normalizeMode(current.mode || settings.mode);
   const scenario = normalizeScenario(current.scenario || settings.scenario);
   const previous = current.result && current.result.kind === 'enhanced' ? current.result.prompt : '';
+  const clarification = (current.clarification || []).concat([{ question: '用户继续改稿的补充或纠正', answer: text.slice(0, MAX_HINTS_CHARS) }]);
 
   cancelInflight(key);
   const runId = nextRunId(key);
@@ -447,6 +454,7 @@ async function refine(sessionId, instruction) {
     open: true,
     status: 'running',
     showRefine: true,
+    clarification: clarification,
     error: null,
     mode: mode,
     scenario: scenario,
@@ -458,6 +466,8 @@ async function refine(sessionId, instruction) {
       {
         draft: current.base,
         previous: previous,
+        clarification: current.clarification,
+        polishOnly: current.polishOnly,
         instruction: text.slice(0, MAX_HINTS_CHARS),
         mode: mode,
         scenario: scenario,
@@ -492,11 +502,14 @@ function enhanceWithAnswers(sessionId) {
   const current = store.getSessionState(key);
   const answers = typeof current.answers === 'string' ? current.answers.trim() : '';
   if (!answers) return Promise.resolve(null);
-  return enhance(key, current.base, { hints: answers, mode: current.mode, scenario: current.scenario });
+  const prior = Array.isArray(current.clarification) ? current.clarification : [];
+  const question = current.result && current.result.questions ? current.result.questions[0] : '';
+  const clarification = prior.concat([{ question: question || '', answer: answers }]);
+  return enhance(key, current.base, { clarification, answers: '', mode: current.mode, scenario: current.scenario });
 }
 
 /**
- * Skip the questions and let the model choose sensible defaults.
+ * 仅整理原文，不替用户决定歧义。
  * @param {unknown} sessionId
  * @returns {Promise<{kind: string, prompt?: string} | null>}
  */
@@ -504,7 +517,8 @@ function enhanceAssumingDefaults(sessionId) {
   const key = store.sessionKey(sessionId);
   const current = store.getSessionState(key);
   return enhance(key, current.base, {
-    hints: 'The user skipped the questions. Choose the most reasonable defaults, and return the enhanced prompt without asking again.',
+    polishOnly: true,
+    clarification: current.clarification,
     mode: current.mode,
     scenario: current.scenario,
   });
@@ -518,8 +532,7 @@ function enhanceAssumingDefaults(sessionId) {
 function retry(sessionId) {
   const key = store.sessionKey(sessionId);
   const current = store.getSessionState(key);
-  if (current.hints) return enhance(key, current.base, { hints: current.hints, mode: current.mode, scenario: current.scenario });
-  return enhance(key, current.base, { mode: current.mode, scenario: current.scenario });
+  return enhance(key, current.base, { hints: current.hints, clarification: current.clarification, polishOnly: current.polishOnly, mode: current.mode, scenario: current.scenario });
 }
 
 /**
@@ -816,6 +829,105 @@ function undoWeixinDraft(sessionId, inputActions) {
   store.setSessionState(sessionId, { weixinNotice: null, weixinBefore: '' });
 }
 
+/* ------------------------------------------------- follow-up suggestions */
+
+/** Sessions with a follow-up request in flight (dedupe between rerenders). */
+const followupsInflight = new Set();
+
+/**
+ * @param {unknown} value
+ * @returns {string[]}
+ */
+function normalizeFollowupList(value) {
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const text = item.replace(/\s+/g, ' ').trim();
+    if (!text) continue;
+    out.push(text.slice(0, LIMITS.MAX_FOLLOWUP_CHARS));
+    if (out.length >= LIMITS.MAX_FOLLOWUPS) break;
+  }
+  return out;
+}
+
+/**
+ * Draft 3-4 next-message options from the session's last completed exchange.
+ *
+ * Best-effort by design: the strip that consumes this state only renders when
+ * at least three usable options arrived, so a failed or thin answer stays
+ * invisible and never interrupts the composer.
+ *
+ * @param {unknown} sessionId
+ * @returns {Promise<string[] | null>}
+ */
+async function generateFollowups(sessionId) {
+  const key = store.sessionKey(sessionId);
+  if (key === 'default') return null;
+  // Follow-ups are generated from the conversation; honour the same opt-out
+  // as the enhancement call instead of shipping history the user disabled.
+  if (store.getSettings().includeContext === false) return null;
+  if (followupsInflight.has(key)) return null;
+  const runId = store.getSessionState(key).followupsRunId + 1;
+  store.setSessionState(key, { followupsStatus: 'running', followupsRunId: runId, followups: [] });
+  followupsInflight.add(key);
+  try {
+    const response = await callHost(
+      METHODS.FOLLOWUPS,
+      {
+        sessionId: key,
+        locale: currentLocale(),
+        model: modelOverride() || modelHintFor(key),
+      },
+      { timeoutMs: 90000 },
+    );
+    if (store.getSessionState(key).followupsRunId !== runId) return null;
+    const result = response && response.result ? response.result : null;
+    const options = normalizeFollowupList(result && result.options);
+    if (options.length < LIMITS.MIN_FOLLOWUPS) {
+      store.setSessionState(key, { followupsStatus: 'idle', followups: [] });
+      return null;
+    }
+    store.setSessionState(key, { followupsStatus: 'ready', followups: options });
+    return options;
+  } catch (error) {
+    if (store.getSessionState(key).followupsRunId !== runId) return null;
+    store.setSessionState(key, { followupsStatus: 'idle', followups: [] });
+    return null;
+  } finally {
+    followupsInflight.delete(key);
+  }
+}
+
+/**
+ * Drop the current options and cancel any in-flight generation for the session.
+ * @param {unknown} sessionId
+ * @returns {void}
+ */
+function clearFollowups(sessionId) {
+  const key = store.sessionKey(sessionId);
+  store.setSessionState(key, {
+    followups: [],
+    followupsStatus: 'idle',
+    followupsRunId: store.getSessionState(key).followupsRunId + 1,
+  });
+}
+
+/**
+ * Write one suggestion into the composer draft. Never sends.
+ * @param {unknown} sessionId
+ * @param {any} inputActions
+ * @param {string} text
+ * @returns {boolean}
+ */
+function applyFollowup(sessionId, inputActions, text) {
+  const value = typeof text === 'string' ? text : '';
+  if (!value.trim()) return false;
+  if (!writeDraft(inputActions, value)) return false;
+  store.setSessionState(sessionId, { followups: [], followupsStatus: 'idle' });
+  return true;
+}
+
 module.exports = {
   setContext,
   modelHintFor,
@@ -856,4 +968,7 @@ module.exports = {
   noteWeixinQueue,
   dismissWeixinNotice,
   undoWeixinDraft,
+  generateFollowups,
+  clearFollowups,
+  applyFollowup,
 };

@@ -13,7 +13,7 @@ test('protocol constants are stable', () => {
   assert.deepEqual(protocol.SCENARIOS, ['auto', 'code', 'writing', 'research', 'agent', 'general']);
   assert.equal(protocol.LIMITS.MAX_BODY_BYTES, 1024 * 1024);
   assert.equal(protocol.LIMITS.MAX_DRAFT_CHARS, 20000);
-  assert.equal(protocol.LIMITS.MAX_QUESTIONS, 2);
+  assert.equal(protocol.LIMITS.MAX_QUESTIONS, 1);
 });
 
 test('normalizeMode falls back to standard', () => {
@@ -218,4 +218,23 @@ test('validateEnhance and validateRefine send context by default and honour an o
   const refine = protocol.validateRefine({ draft: 'hi', instruction: 'shorter' });
   assert.equal(refine.ok, true);
   assert.equal(refine.value.withContext, true);
+});
+
+test('validateFollowups needs a session id and normalizes the locale', () => {
+  const missing = protocol.validateFollowups({});
+  assert.equal(missing.ok, false);
+  assert.equal(missing.error.code, 'BAD_REQUEST');
+
+  const accepted = protocol.validateFollowups({ sessionId: 's-1', locale: 'en' });
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.value.sessionId, 's-1');
+  assert.equal(accepted.value.locale, 'en');
+  assert.equal(accepted.value.model, null);
+
+  const withModel = protocol.validateFollowups({
+    sessionId: 's-1',
+    model: { provider: 'deepseek-account', model: 'deepseek-flash' },
+  });
+  assert.equal(withModel.ok, true);
+  assert.equal(withModel.value.model.model, 'deepseek-flash');
 });

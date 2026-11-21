@@ -27,7 +27,8 @@ const CSS = `
 .dpc-card,
 .dpc-action,
 .dpc-chip,
-.dpc-model-option {
+.dpc-model-option,
+.dpc-followups {
   --dpc-ease: cubic-bezier(.16, 1, .3, 1);
   --dpc-ease-settle: cubic-bezier(.34, 1.4, .4, 1);
   --dpc-r-lg: 20px;
@@ -773,6 +774,82 @@ const CSS = `
 .dpc-notice-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .dpc-notice .dpc-close { width: 24px; height: 24px; border-radius: 7px; font-size: 13px; line-height: 1; }
 
+/* -------------------------------------------------- follow-up suggestions */
+.dpc-followups {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 0 16px 8px;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--dpc-line);
+  border-radius: var(--dpc-r-md, 12px);
+  background: var(--dpc-surface, #ffffff);
+  box-shadow: var(--dpc-shadow-1, 0 1px 2px rgb(0 0 0 / 6%));
+  color: var(--dpc-fg);
+  font-size: 12.5px;
+  animation: dpc-rise 200ms var(--dpc-ease);
+}
+.dpc-followups-head { display: flex; align-items: center; gap: 6px; min-height: 20px; }
+.dpc-followups-mark { display: inline-flex; align-items: center; gap: 2px; color: var(--dpc-accent); }
+.dpc-followups-mark svg { animation: dpc-drift 3.2s var(--dpc-ease) infinite; }
+.dpc-followups-spark {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .55;
+  animation: dpc-twinkle 2.4s ease-in-out infinite;
+}
+.dpc-followups-spark:nth-of-type(2) { width: 2px; height: 2px; animation-delay: .7s; }
+.dpc-followups-label { color: var(--dpc-fg-3); font-size: 11.5px; white-space: nowrap; }
+.dpc-followups-head .dpc-close { width: 24px; height: 24px; border-radius: 7px; font-size: 13px; line-height: 1; margin-left: auto; }
+.dpc-followups-list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dpc-followups-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--dpc-r-sm, 10px);
+  background: transparent;
+  color: var(--dpc-fg-2);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  transition: background 140ms var(--dpc-ease), color 140ms var(--dpc-ease);
+}
+.dpc-followups-option:hover { background: var(--dpc-surface-2); color: var(--dpc-fg); }
+.dpc-followups-option[data-selected='true'] { background: var(--dpc-accent-soft); color: var(--dpc-fg); }
+.dpc-followups-option:focus-visible { outline: 2px solid var(--dpc-ring, var(--dpc-accent)); outline-offset: 1px; }
+.dpc-followups-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dpc-followups-radio {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--dpc-line-strong);
+  border-radius: 50%;
+  transition: border-color 140ms var(--dpc-ease);
+}
+.dpc-followups-radio::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dpc-accent);
+  transform: scale(0);
+  transition: transform 140ms var(--dpc-ease);
+}
+.dpc-followups-option[data-selected='true'] .dpc-followups-radio { border-color: var(--dpc-accent); }
+.dpc-followups-option[data-selected='true'] .dpc-followups-radio::after { transform: scale(1); }
+
 
 @keyframes dpc-rise {
   from { opacity: 0; transform: translateY(7px) scale(.995); }
@@ -781,6 +858,14 @@ const CSS = `
 @keyframes dpc-fade {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes dpc-twinkle {
+  0%, 100% { opacity: .35; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+@keyframes dpc-drift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
 }
 
 /* The settings card lives in a narrow pane inside the host settings page, so
@@ -807,7 +892,12 @@ const CSS = `
   .dpc-chip,
   .dpc-model-option,
   .dpc-textarea,
-  .dpc-input {
+  .dpc-input,
+  .dpc-followups-option,
+  .dpc-followups-radio,
+  .dpc-followups-radio::after,
+  .dpc-followups-mark svg,
+  .dpc-followups-spark {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: .01ms !important;

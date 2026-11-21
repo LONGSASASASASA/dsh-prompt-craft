@@ -25,12 +25,11 @@ test('the public rule list is stable and every rule has a first-party source', (
   }
 });
 
-test('rulesBlock lists every rule with its guidance and makes citations binding', () => {
-  const block = rulesBlock('code');
-  for (const id of RULE_IDS) assert.ok(block.includes(id + ' '), id + ' missing from the block');
-  assert.match(block, /cite the ids of the rules you actually used/);
-  assert.match(block, /prefer concrete file\/component\/route names/);
-  assert.match(block, /R5 require a verification loop/);
+test('公开经验按需引用，不强制编码流程', () => {
+ const block = rulesBlock('general');
+ assert.match(block,/仅在不增加用户要求时适用/);
+ assert.doesNotMatch(block,/R5 |R6 |coding agent/);
+ assert.match(rulesBlock('code'),/R2 /);
 });
 
 test('clampRationale keeps only citations of real rules', () => {

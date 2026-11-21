@@ -134,6 +134,8 @@ const SESSION_DEFAULTS = Object.freeze({
   scenario: null,
   base: '',
   hints: '',
+  clarification: [],
+  polishOnly: false,
   previous: '',
   result: null,
   hunks: [],
@@ -148,6 +150,10 @@ const SESSION_DEFAULTS = Object.freeze({
   appliedText: '',
   weixinNotice: null,
   weixinBefore: '',
+  /** Follow-up message ideas for the last completed turn (fill-only). */
+  followups: [],
+  followupsStatus: 'idle',
+  followupsRunId: 0,
   runId: 0,
 });
 

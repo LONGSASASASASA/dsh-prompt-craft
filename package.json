@@ -1,7 +1,7 @@
 {
   "name": "dsh-prompt-craft",
-  "version": "0.5.0",
-  "description": "Goal-oriented prompt enhancement for DeepSeek Harness: rewrites drafts around the outcome they serve, follows 14 published prompt-writing rules, shows a line diff with per-section accept, and explains every edit by rule id.",
+  "version": "0.6.0",
+  "description": "忠实原意的提示词增强：明确需求直接改写，关键歧义逐轮澄清；支持对比、分段应用和撤销。",
   "type": "commonjs",
   "main": "./lib/host/index.cjs",
   "exports": {

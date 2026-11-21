@@ -20,17 +20,19 @@ const {
   validateEnhance,
   validateRefine,
   validateProbe,
+  validateFollowups,
   tokenBudgetFor,
   isPlainObject,
 } = require('../protocol.cjs');
 const {
   buildEnhancePrompt,
   buildRefinePrompt,
+  buildFollowupsPrompt,
   buildProbePrompt,
   buildRepairMessages,
   buildTruncationReminder,
 } = require('./templates.cjs');
-const { parseModelOutput } = require('./parse-output.cjs');
+const { parseModelOutput, parseFollowupOutput } = require('./parse-output.cjs');
 const { resolveModel } = require('./resolve-model.cjs');
 const { readSessionContext } = require('./context.cjs');
 
@@ -351,9 +353,11 @@ function describeRepairError(error) {
  * @param {number} timeoutMs
  * @param {{ text: string, finish?: any, retry?: Record<string, string> }} first
  * @param {{ excerpt?: string }} parsed
+ * @param {(raw: string) => any} [parseFn]
  * @returns {Promise<{ ok: true, result: object, retried?: object } | { ok: false, code: string, message: string, excerpt?: string, details: object }>}
  */
-async function retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed) {
+async function retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed, parseFn) {
+  const parse = typeof parseFn === 'function' ? parseFn : parseModelOutput;
   const baseBudget = tokenBudgetFor(model.reasoningEffort);
   const raisedBudget = Math.min(baseBudget * 2, TOKEN_BUDGET.MAX);
   const details = {
@@ -378,7 +382,7 @@ async function retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed
     if (failure) {
       return Object.assign({}, failure, { details: Object.assign({}, failure.details || {}, details) });
     }
-    const retryParsed = parseModelOutput(second.text);
+    const retryParsed = parse(second.text);
     if (retryParsed.ok) {
       return Object.assign({}, retryParsed, { retried: { budget: String(raisedBudget) } });
     }
@@ -403,21 +407,23 @@ async function retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed
  * @param {{ system: string, messages: any[] }} prompt
  * @param {{ provider: string, model: string, reasoningEffort?: string }} model
  * @param {number} timeoutMs
+ * @param {(raw: string) => any} [parseFn] parser for this method's JSON shape
  * @returns {Promise<{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt?: string, details?: object }>}
  */
-async function generateResult(llm, prompt, model, timeoutMs) {
+async function generateResult(llm, prompt, model, timeoutMs, parseFn) {
+  const parse = typeof parseFn === 'function' ? parseFn : parseModelOutput;
   const first = await callModelAuto(llm, prompt, model, timeoutMs);
   const failure = finishFailure(first.finish, first.text);
   if (failure) {
     if (first.retry) failure.details.retriedWith = first.retry;
     return { ok: false, ...failure };
   }
-  const parsed = parseModelOutput(first.text);
+  const parsed = parse(first.text);
   if (parsed.ok) {
     return first.retry ? Object.assign({}, parsed, { retried: first.retry }) : parsed;
   }
   if (first.finish && first.finish.kind === 'max-tokens') {
-    return retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed);
+    return retryAfterTruncation(llm, prompt, model, timeoutMs, first, parsed, parse);
   }
   const repairPrompt = {
     system: prompt.system,
@@ -450,7 +456,7 @@ async function generateResult(llm, prompt, model, timeoutMs) {
     if (second.retry) secondFailure.details.retriedWith = second.retry;
     return { ok: false, ...secondFailure };
   }
-  const repaired = parseModelOutput(second.text);
+  const repaired = parse(second.text);
   if (!repaired.ok) {
     return Object.assign({}, repaired, {
       details: {
@@ -624,6 +630,91 @@ function createHandler(deps) {
         return;
       }
 
+      if (method === METHODS.FOLLOWUPS) {
+        const followCheck = validateFollowups(body);
+        if (!followCheck.ok) {
+          sendJson(res, statusFor(followCheck.error), { ok: false, error: followCheck.error });
+          return;
+        }
+        const follow = followCheck.value;
+        const startedFollow = Date.now();
+        /** The feature is fed by the session itself; nothing to read means nothing to show. */
+        let context = [];
+        if (typeof deps.readContext === 'function') {
+          try {
+            context = deps.readContext(follow.sessionId) || [];
+          } catch (error) {
+            context = [];
+          }
+        }
+        if (!Array.isArray(context) || context.length === 0) {
+          sendJson(res, 200, {
+            ok: true,
+            result: { kind: 'followups', options: [] },
+            meta: { elapsedMs: Date.now() - startedFollow, contextMessages: 0 },
+          });
+          return;
+        }
+        const followModel = deps.resolveModelFn(follow.model, follow.sessionId);
+        if (!followModel) {
+          sendJson(res, 400, {
+            ok: false,
+            error: makeError(ERROR_CODES.MODEL_UNRESOLVED, 'no provider/model could be resolved for this session', {
+              hint: 'pick a model in the composer or set provider/model in the plugin settings',
+            }),
+          });
+          return;
+        }
+        let followLlm;
+        try {
+          followLlm = deps.getLlm();
+        } catch (error) {
+          sendJson(res, 500, {
+            ok: false,
+            error: makeError(ERROR_CODES.INTERNAL, error && error.message ? error.message : 'llm unavailable'),
+          });
+          return;
+        }
+        const followMeta = {
+          provider: followModel.provider,
+          model: followModel.model,
+          source: followModel.source,
+          effort: followModel.reasoningEffort || '',
+          contextMessages: context.length,
+        };
+        try {
+          // Follow-ups are a convenience: any failure is answered with an error
+          // and the client simply keeps the suggestion strip hidden.
+          const outcome = await generateResult(
+            followLlm,
+            buildFollowupsPrompt({ context, locale: follow.locale }),
+            followModel,
+            timeoutMs,
+            parseFollowupOutput,
+          );
+          followMeta.elapsedMs = Date.now() - startedFollow;
+          if (outcome.retried) followMeta.retriedWith = outcome.retried;
+          if (!outcome.ok) {
+            const details = Object.assign({}, outcome.details || {}, outcome.excerpt ? { excerpt: outcome.excerpt } : {});
+            sendJson(res, statusFor(outcome), {
+              ok: false,
+              error: makeError(outcome.code, outcome.message, Object.keys(details).length > 0 ? details : undefined),
+              meta: followMeta,
+            });
+            return;
+          }
+          sendJson(res, 200, { ok: true, result: outcome.result, meta: followMeta });
+        } catch (error) {
+          const code = error && typeof error.code === 'string' ? error.code : ERROR_CODES.INTERNAL;
+          sendJson(res, statusFor({ code }), {
+            ok: false,
+            error: makeError(code, error && error.message ? String(error.message) : 'follow-up suggestions failed'),
+            meta: followMeta,
+          });
+        }
+        return;
+      }
+
       const started = Date.now();
       const validated =
         method === METHODS.ENHANCE
@@ -669,7 +760,7 @@ function createHandler(deps) {
        * missing or disposed session never fails an enhancement.
        */
       let context = [];
-      if (request.withContext !== false && request.sessionId && typeof deps.readContext === 'function') {
+      if (!request.polishOnly && request.withContext !== false && request.sessionId && typeof deps.readContext === 'function') {
         try {
           context = deps.readContext(request.sessionId) || [];
         } catch (error) {
@@ -687,7 +778,9 @@ function createHandler(deps) {
               previous: request.previous,
               instruction: request.instruction,
               locale: request.locale,
-              context: context,
+              context: request.polishOnly ? [] : context,
+              polishOnly: request.polishOnly,
+              clarification: request.clarification,
             })
           : buildEnhancePrompt({
               mode: request.mode,
@@ -695,10 +788,16 @@ function createHandler(deps) {
               draft: request.draft,
               hints: request.hints,
               locale: request.locale,
-              context: context,
+              context: request.polishOnly ? [] : context,
+              polishOnly: request.polishOnly,
+              clarification: request.clarification,
             });
 
-      const outcome = await generateResult(llm, prompt, model, timeoutMs);
+      let outcome = await generateResult(llm, prompt, model, timeoutMs);
+      // 仅润色路径不允许模型强迫澄清；不遵守时保留原稿，不猜默认答案。
+      if (request.polishOnly && outcome.ok && outcome.result.kind === 'questions') {
+        outcome = { ok: true, result: { kind: 'enhanced', prompt: request.draft, goal: '', summary: '保留原文，未替你决定尚未澄清的意思。', notes: [], elevation: [], rationale: [], scenario: request.scenario } };
+      }
       const meta = {
         provider: model.provider,
         model: model.model,

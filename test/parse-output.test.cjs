@@ -10,7 +10,9 @@ const {
   repairJsonText,
   stripPromptFence,
   normalizeResult,
+  normalizeFollowups,
   parseModelOutput,
+  parseFollowupOutput,
 } = require('../src/host/parse-output.cjs');
 
 const ENHANCED = JSON.stringify({
@@ -119,7 +121,7 @@ test('normalizeResult rejects empty and oversized prompts', () => {
 test('normalizeResult accepts the questions shape', () => {
   const result = normalizeResult({ kind: 'questions', questions: ['which language?', 'which version?', 'extra'], summary: 'need info' });
   assert.equal(result.kind, 'questions');
-  assert.deepEqual(result.questions, ['which language?', 'which version?']);
+  assert.deepEqual(result.questions, ['which language?']);
   assert.equal(result.summary, 'need info');
 
   assert.equal(normalizeResult({ kind: 'questions', questions: [] }), null);
@@ -200,4 +202,38 @@ test('repairJsonText only touches bare control characters inside strings', () =>
   const repaired = repairJsonText('{"prompt":"a\nb\tc","keep":"\\\\n"}');
   assert.equal(repaired.includes('a\\nb\\tc'), true);
   assert.equal(repaired.includes('"keep":"\\\\n"'), true);
+});
+
+test('parseFollowupOutput accepts an object, a bare array and a fenced answer', () => {
+  const fromObject = parseFollowupOutput('{"options":["继续实现","解释改动","补测试"]}');
+  assert.equal(fromObject.ok, true);
+  assert.deepEqual(fromObject.result.options, ['继续实现', '解释改动', '补测试']);
+  assert.equal(fromObject.result.kind, 'followups');
+
+  const fromArray = parseFollowupOutput('["一","二","三"]');
+  assert.equal(fromArray.ok, true);
+  assert.deepEqual(fromArray.result.options, ['一', '二', '三']);
+
+  const fenced = parseFollowupOutput('```json\n{"options":["a","b","c"]}\n```');
+  assert.equal(fenced.ok, true);
+  assert.equal(fenced.result.options.length, 3);
+});
+
+test('parseFollowupOutput rejects a thin or missing answer', () => {
+  const thin = parseFollowupOutput('{"options":["only one"]}');
+  assert.equal(thin.ok, false);
+  assert.equal(thin.code, 'BAD_MODEL_OUTPUT');
+  assert.match(thin.message, /3-4/);
+  assert.ok(thin.excerpt.length > 0);
+
+  const junk = parseFollowupOutput('plain words with no json');
+  assert.equal(junk.ok, false);
+  assert.equal(junk.code, 'BAD_MODEL_OUTPUT');
+});
+
+test('normalizeFollowups keeps at most four options', () => {
+  const normalized = normalizeFollowups({ options: ['1', '2', '3', '4', '5'] });
+  assert.equal(normalized.options.length, 4);
+  assert.equal(normalizeFollowups({ options: ['1', '2'] }), null);
+  assert.equal(normalizeFollowups(null), null);
 });

@@ -16,6 +16,7 @@ const { EnhanceButton } = require('./button.js');
 const { EnhancePanel } = require('./panel.js');
 const { SettingsSection } = require('./settings.js');
 const { WeixinNotice } = require('./weixin.js');
+const { FollowupBar } = require('./followups.js');
 
 /**
  * @param {any} slots slot service
@@ -68,6 +69,12 @@ function apply(ctx) {
       'conversation.input.dock',
       { name: 'conversation.input.dock', id: 'prompt-craft-weixin', order: 12, label: 'WeChat inbox' },
       WeixinNotice,
+    );
+    register(
+      slots,
+      'conversation.input.dock',
+      { name: 'conversation.input.dock', id: 'prompt-craft-followups', order: 16, label: 'Follow-up suggestions' },
+      FollowupBar,
     );
     register(
       slots,

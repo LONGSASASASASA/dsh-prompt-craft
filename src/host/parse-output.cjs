@@ -8,8 +8,8 @@
  * A parse failure is surfaced as a structured error, never as an empty result.
  */
 
-const { LIMITS } = require('../protocol.cjs');
-const { clampNotes, clampElevation, clampQuestions } = require('./templates.cjs');
+const { LIMITS, isPlainObject } = require('../protocol.cjs');
+const { clampNotes, clampElevation, clampQuestions, clampFollowups } = require('./templates.cjs');
 const { clampRationale } = require('./rules.cjs');
 
 /**
@@ -242,12 +242,118 @@ function parseModelOutput(raw) {
   };
 }
 
+/**
+ * Every balanced `[...]` candidate in source order, ignoring brackets inside
+ * strings. Used as a fallback when a model answers with a bare JSON array
+ * instead of the requested `{"options": [...]}` object.
+ * @param {string} source
+ * @returns {string[]}
+ */
+function balancedArrays(source) {
+  const out = [];
+  for (let start = source.indexOf('['); start !== -1; start = source.indexOf('[', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = start; index < source.length; index += 1) {
+      const char = source[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+        continue;
+      }
+      if (char === '[') depth += 1;
+      else if (char === ']') {
+        depth -= 1;
+        if (depth === 0) {
+          out.push(source.slice(start, index + 1));
+          break;
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string} text
+ * @returns {unknown[] | null}
+ */
+function extractJsonArray(text) {
+  const source = typeof text === 'string' ? text : '';
+  for (const candidate of balancedArrays(source)) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+    } catch (error) {
+      /* try the mechanically repaired variant below */
+    }
+    try {
+      const repaired = JSON.parse(repairJsonText(candidate));
+      if (Array.isArray(repaired)) return repaired;
+    } catch (error) {
+      /* not this candidate */
+    }
+  }
+  return null;
+}
+
+/**
+ * Normalize the follow-up answer: accept either `{"options": [...]}` or a bare
+ * array, and require the UI minimum so a thin answer is reported as a failure
+ * (the panel then stays hidden) instead of showing one weak option.
+ * @param {unknown} value
+ * @returns {{ kind: 'followups', options: string[] } | null}
+ */
+function normalizeFollowups(value) {
+  let list = null;
+  if (Array.isArray(value)) list = value;
+  else if (isPlainObject(value) && Array.isArray(value.options)) list = value.options;
+  const options = clampFollowups(list);
+  if (options.length < LIMITS.MIN_FOLLOWUPS) return null;
+  return { kind: 'followups', options };
+}
+
+/**
+ * @param {string} raw
+ * @returns {{ ok: true, result: object } | { ok: false, code: string, message: string, excerpt: string }}
+ */
+function parseFollowupOutput(raw) {
+  const text = typeof raw === 'string' ? raw : '';
+  const pieces = fencedBlocks(text);
+  pieces.push(stripOuterFence(text));
+  pieces.push(text);
+  for (const piece of pieces) {
+    const object = extractJsonObject(piece);
+    const fromObject = object ? normalizeFollowups(object) : null;
+    if (fromObject) return { ok: true, result: fromObject };
+    const array = extractJsonArray(piece);
+    const fromArray = array ? normalizeFollowups(array) : null;
+    if (fromArray) return { ok: true, result: fromArray };
+  }
+  return {
+    ok: false,
+    code: 'BAD_MODEL_OUTPUT',
+    message: 'the model did not return 3-4 usable follow-up options',
+    excerpt: text.trim().slice(0, 400),
+  };
+}
+
 module.exports = {
   stripOuterFence,
   extractJsonObject,
+  extractJsonArray,
   repairJsonText,
   balancedCandidates,
+  balancedArrays,
   stripPromptFence,
   normalizeResult,
+  normalizeFollowups,
   parseModelOutput,
+  parseFollowupOutput,
 };

@@ -10,7 +10,7 @@
 
 const ZH = {
   'button.label': '增强提示词',
-  'button.tooltip': '用 AI 改写当前草稿：以目标为导向、diff 预览、分段接受',
+  'button.tooltip': '忠实原意地改写；关键歧义先问，对比后再应用',
   'button.empty': '先写点内容再增强',
 
   'panel.title': '提示词增强',
@@ -20,11 +20,11 @@ const ZH = {
 
   'mode.label': '力度',
   'mode.light': '轻改',
-  'mode.standard': '目标导向',
-  'mode.expert': '立意升维',
-  'mode.light.hint': '理顺表达，把目标说清楚',
-  'mode.standard.hint': '围绕真正想要的结果重写',
-  'mode.expert.hint': '目标、成功标准、边界与取舍一次写全',
+  'mode.standard': '自然改写',
+  'mode.expert': '细致梳理',
+  'mode.light.hint': '保留口吻，只改明显不顺的表达',
+  'mode.standard.hint': '不扩范围，把原意说清楚',
+  'mode.expert.hint': '梳理已有要求，重要歧义先问',
 
   'scenario.label': '场景',
   'scenario.auto': '自动',
@@ -36,7 +36,7 @@ const ZH = {
 
   'result.summary': '改写说明',
   'result.notes': '主要改动',
-  'result.goal': '真正的目标',
+  'result.goal': '本次理解',
   'result.elevation': '立意升维',
   'result.rationale': '改动依据',
   'result.acceptAll': '全部应用',
@@ -59,11 +59,11 @@ const ZH = {
   'result.retry': '重试',
   'applied.done': '完成',
 
-  'question.title': '先确认两件事',
-  'question.hint': '回答后重写会更贴合需求；也可以让模型自行取舍。',
+  'question.title': '先确认一件事',
+  'question.hint': '只问影响方向的地方；不想补充也可以仅润色原文。',
   'question.placeholder': '简要回答，每行一条…',
   'question.submit': '带着回答重写',
-  'question.assume': '按缺省值直接改',
+  'question.assume': '仅润色原文',
 
   'error.title': '增强失败',
   'error.badOutput': '模型返回的内容不是约定的 JSON。',
@@ -116,6 +116,8 @@ const ZH = {
   'weixin.close': '关闭提示',
   'weixin.noticeTitle': '收到 {n} 条微信消息',
   'weixin.noticeFrom': '来自 {from}',
+  'followups.title': '接下来可以',
+  'followups.close': '关闭后续建议',
   'settings.language': '界面语言',
   'settings.language.auto': '跟随 DSH 界面',
   'settings.language.zh': '中文',
@@ -258,6 +260,8 @@ const EN = {
   'weixin.close': 'Dismiss',
   'weixin.noticeTitle': '{n} WeChat message(s)',
   'weixin.noticeFrom': 'from {from}',
+  'followups.title': 'Next, maybe',
+  'followups.close': 'Dismiss suggestions',
   'settings.language': 'Language',
   'settings.language.auto': 'Follow the DSH UI',
   'settings.language.zh': '中文',

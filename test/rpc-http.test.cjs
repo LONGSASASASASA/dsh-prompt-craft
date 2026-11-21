@@ -692,3 +692,89 @@ test('handler reports the model excerpt when the second answer is still not JSON
   assert.equal(payload.error.details.finish, 'stop');
   assert.ok(payload.error.details.textChars > 0);
 });
+
+
+test('仅润色忽略历史，模型继续追问时保留原稿', async () => {
+ let reads=0;
+ const handler=handlerWith({getLlm:()=>textStream(JSON.stringify({kind:'questions',questions:['什么意思？']})),readContext:()=>{reads++;return [{role:'assistant',text:'应该增加注册功能'}];}});
+ const res=makeRes();
+ await handler(makeReq({body:JSON.stringify({method:'enhance',draft:'改高级点',sessionId:'s',polishOnly:true})}),res);
+ assert.equal(res.statusCode,200);
+ assert.equal(reads,0);
+ assert.equal(jsonOf(res).result.prompt,'改高级点');
+ assert.equal(jsonOf(res).result.kind,'enhanced');
+});
+
+test('followups returns the suggested next messages', async () => {
+  const llm = recordingLlm([
+    textStream(JSON.stringify({ options: ['继续实现后续选项', '解释刚才的改动', '给这段代码补测试'] })),
+  ]);
+  const { res } = await invoke(
+    handlerWith({
+      getLlm: () => llm,
+      readContext: () => [
+        { role: 'user', text: '帮我加一个后续选项功能' },
+        { role: 'assistant', text: '已加好，接下来还需要什么？' },
+      ],
+    }),
+    { body: JSON.stringify({ method: METHODS.FOLLOWUPS, sessionId: 's-1' }) },
+  );
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(payload.result.kind, 'followups');
+  assert.deepEqual(payload.result.options, ['继续实现后续选项', '解释刚才的改动', '给这段代码补测试']);
+  assert.equal(payload.meta.contextMessages, 2);
+  assert.equal(payload.meta.provider, 'deepseek-account');
+  assert.equal(payload.meta.model, 'deepseek-flash');
+  const prompt = llm.seen[0].messages[0].content[0].text;
+  assert.match(prompt, /<<<CONTEXT/);
+  assert.match(prompt, /User: 帮我加一个后续选项功能/);
+  assert.match(prompt, /<<<CONTEXT/);
+});
+
+test('followups without a conversation returns no options and skips the model', async () => {
+  const llm = recordingLlm([textStream(JSON.stringify({ options: ['a', 'b', 'c'] }))]);
+  const { res } = await invoke(handlerWith({ getLlm: () => llm, readContext: () => [] }), {
+    body: JSON.stringify({ method: METHODS.FOLLOWUPS, sessionId: 's-empty' }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(payload.result.options, []);
+  assert.equal(payload.meta.contextMessages, 0);
+  assert.equal(llm.calls, 0);
+});
+
+test('followups hides a thin model answer', async () => {
+  const llm = recordingLlm([textStream(JSON.stringify({ options: ['只有一条'] }))]);
+  const { res } = await invoke(
+    handlerWith({ getLlm: () => llm, readContext: () => [{ role: 'user', text: 'hi' }, { role: 'assistant', text: 'hello' }] }),
+    { body: JSON.stringify({ method: METHODS.FOLLOWUPS, sessionId: 's-thin' }) },
+  );
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 502);
+  assert.equal(payload.error.code, 'BAD_MODEL_OUTPUT');
+  assert.match(payload.error.message, /3-4/);
+});
+
+test('followups requires a session id', async () => {
+  const { res } = await invoke(handlerWith({ readContext: () => [] }), {
+    body: JSON.stringify({ method: METHODS.FOLLOWUPS }),
+  });
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(payload.error.code, 'BAD_REQUEST');
+});
+
+test('followups reports an unresolvable model', async () => {
+  const { res } = await invoke(
+    handlerWith({
+      getLlm: () => textStream(JSON.stringify({ options: ['a', 'b', 'c'] })),
+      readContext: () => [{ role: 'user', text: 'hi' }, { role: 'assistant', text: 'hello' }],
+      resolveModelFn: () => null,
+    }),
+    { body: JSON.stringify({ method: METHODS.FOLLOWUPS, sessionId: 's-model' }) },
+  );
+  const payload = jsonOf(res);
+  assert.equal(res.statusCode, 400);
+  assert.equal(payload.error.code, 'MODEL_UNRESOLVED');
+});
